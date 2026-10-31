@@ -295,6 +295,7 @@ Allows you to download or upload the full BLLED configuration (`blledconfig.json
 
 - Includes: WiFi, printer IP, serial number, LED settings, HMS ignores, etc.
 - Format: JSON file, pretty-formatted
+- ⚠️ Contains the WiFi password, printer access code and the WebUI and Home Assistant passwords in plain text. Keep it somewhere private.
 
 ---
 
@@ -335,7 +336,7 @@ Name of the WiFi network the device should connect to.
 **ID:** `password`  
 **Type:** Password (required)  
 **Description:**  
-WiFi password. Will be stored encrypted in the local config.
+WiFi password. Stored on the controller in plain text, like the printer access code and the WebUI and Home Assistant passwords, and included in config backups.
 Once saved, it is never shown again: leave the field blank to keep it. A new network needs its password.
 
 > You can view available networks via the 🔍 Scan button.
