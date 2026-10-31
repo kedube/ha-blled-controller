@@ -6,6 +6,15 @@
 #define HA_MIRED_MIN 153
 #define HA_MIRED_MAX 500
 
+#include <esp_heap_caps.h>
+
+// Memory that ordinary allocations (malloc, String, JSON, TLS buffers) can use.
+// ESP.getFreeHeap() and ESP.getMaxAllocHeap() also count the ~50 kB of leftover instruction
+// RAM, which only takes 32-bit accesses, so they overstate it.
+static inline uint32_t freeMemory() { return heap_caps_get_free_size(MALLOC_CAP_8BIT); }
+static inline uint32_t minFreeMemory() { return heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT); }
+static inline uint32_t largestFreeBlock() { return heap_caps_get_largest_free_block(MALLOC_CAP_8BIT); }
+
 #ifdef __cplusplus
 extern "C"
 {

@@ -811,9 +811,9 @@ void handleDiag(AsyncWebServerRequest *request)
     doc["rssi"]              = WiFi.RSSI();
     doc["mqttMsgsPerMin"]    = g_mqttRxMsgsPerMin;
     doc["mqttBytesPerMin"]   = g_mqttRxBytesPerMin;
-    doc["freeHeap"]          = ESP.getFreeHeap();    // each TLS connection takes tens of kB
-    doc["minFreeHeap"]       = ESP.getMinFreeHeap();
-    doc["maxAllocHeap"]      = ESP.getMaxAllocHeap(); // a printer report must fit in one block
+    doc["freeHeap"]          = freeMemory();       // each TLS connection takes tens of kB
+    doc["minFreeHeap"]       = minFreeMemory();
+    doc["maxAllocHeap"]      = largestFreeBlock(); // a printer report must fit in one block
     String json;
     serializeJson(doc, json);
     request->send(200, "application/json", json);

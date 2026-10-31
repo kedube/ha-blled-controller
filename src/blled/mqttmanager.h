@@ -144,8 +144,8 @@ void connectMqtt()
             Serial.print(F("[MQTT] connected, subscribing to: "));
             Serial.println(report_topic);
             stream.flush(); // discard any part of a report left over from the old connection
-            LogSerial.printf("[MQTT] Connected to printer (free heap %u, largest free block %u, unused task stack %u)\n",
-                             ESP.getFreeHeap(), ESP.getMaxAllocHeap(), uxTaskGetStackHighWaterMark(NULL));
+            LogSerial.printf("[MQTT] Connected to printer (free memory %u, largest free block %u, unused task stack %u)\n",
+                             freeMemory(), largestFreeBlock(), uxTaskGetStackHighWaterMark(NULL));
             mqttClient.subscribe(report_topic.c_str());
             printerVariables.online = true;
             printerVariables.disconnectMQTTms = 0;
@@ -674,8 +674,8 @@ void logDroppedReport()
     dropped++;
     if (lastLogMs != 0 && millis() - lastLogMs < 30000)
         return;
-    LogSerial.printf("[MQTT] Dropped %lu printer report(s): not enough memory (last one %u bytes; free heap %u, largest free block %u)\n",
-                     dropped, (unsigned)stream.message_length(), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+    LogSerial.printf("[MQTT] Dropped %lu printer report(s): not enough memory (last one %u bytes; free memory %u, largest free block %u)\n",
+                     dropped, (unsigned)stream.message_length(), freeMemory(), largestFreeBlock());
     dropped = 0;
     lastLogMs = millis();
 }

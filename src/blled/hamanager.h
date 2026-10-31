@@ -407,15 +407,15 @@ bool haConnect()
             // Each TLS session needs two 16 kB buffers in one piece; the printer connection
             // already holds a pair.
             if (tlsResult == MBEDTLS_ERR_SSL_ALLOC_FAILED)
-                LogSerial.printf("[HA] Not enough memory for a second TLS connection (free heap %u, largest free block %u). Switch off Use TLS for Home Assistant.\n",
-                                 ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+                LogSerial.printf("[HA] Not enough memory for a second TLS connection (free memory %u, largest free block %u). Switch off Use TLS for Home Assistant.\n",
+                                 freeMemory(), largestFreeBlock());
         }
         return false;
     }
 
     // What is left after connecting shows whether there is room for TLS.
-    LogSerial.printf("[HA] Connected (free heap %u, largest free block %u, unused task stack %u)\n",
-                     ESP.getFreeHeap(), ESP.getMaxAllocHeap(), uxTaskGetStackHighWaterMark(NULL));
+    LogSerial.printf("[HA] Connected (free memory %u, largest free block %u, unused task stack %u)\n",
+                     freeMemory(), largestFreeBlock(), uxTaskGetStackHighWaterMark(NULL));
     haVariables.connected = true;
     haVariables.haLastConnectState = 0;
 
