@@ -38,7 +38,8 @@ Compared with plugowski's fork (2.4.2), version 2.4.3 makes these changes.
 - **Larger firmware slots** – 1.875 MB per slot instead of 1.25 MB, so new features keep fitting (see the flash layout note below).
 - **Clear firmware update errors** – if you choose the wrong file or the firmware doesn't fit, the update page says so and the current firmware keeps running.
 - **No hang when mDNS fails** – the controller logs the error and keeps running instead of stopping at boot.
-- **Memory in Diagnostics** – the Diagnostics panel shows free memory and the lowest it has been since boot.
+- **Memory in Diagnostics** – the Diagnostics panel shows free memory, the lowest it has been since boot and the largest free block.
+- **Printer reports and low memory** – the buffer for printer reports keeps its size instead of shrinking and regrowing for every report, which fragmented memory. A report that still doesn't fit is dropped with one log line, instead of a "Failed to grow buffer" line for every byte that didn't fit.
 - **Repeatable builds** – the web server and Web Serial libraries are pinned to exact versions.
 
 **Docs and builds**

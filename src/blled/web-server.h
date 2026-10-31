@@ -813,6 +813,7 @@ void handleDiag(AsyncWebServerRequest *request)
     doc["mqttBytesPerMin"]   = g_mqttRxBytesPerMin;
     doc["freeHeap"]          = ESP.getFreeHeap();    // each TLS connection takes tens of kB
     doc["minFreeHeap"]       = ESP.getMinFreeHeap();
+    doc["maxAllocHeap"]      = ESP.getMaxAllocHeap(); // a printer report must fit in one block
     String json;
     serializeJson(doc, json);
     request->send(200, "application/json", json);

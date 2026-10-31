@@ -143,6 +143,7 @@ void connectMqtt()
         {
             Serial.print(F("[MQTT] connected, subscribing to: "));
             Serial.println(report_topic);
+            stream.flush(); // discard any part of a report left over from the old connection
             mqttClient.subscribe(report_topic.c_str());
             printerVariables.online = true;
             printerVariables.disconnectMQTTms = 0;
@@ -662,11 +663,29 @@ else // Door closed
     }
 }
 
+// A report that didn't fit in memory is dropped rather than parsed half-read. Logged at most
+// every 30 s so a printer that keeps sending large reports doesn't flood the log.
+void logDroppedReport()
+{
+    static unsigned long lastLogMs = 0;
+    static unsigned long dropped = 0;
+    dropped++;
+    if (lastLogMs != 0 && millis() - lastLogMs < 30000)
+        return;
+    LogSerial.printf("[MQTT] Dropped %lu printer report(s): not enough memory (last one %u bytes; free heap %u, largest free block %u)\n",
+                     dropped, (unsigned)stream.message_length(), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+    dropped = 0;
+    lastLogMs = millis();
+}
+
 void mqttCallback(char *topic, byte *payload, unsigned int length)
 {
     g_mqttRxMsgs++;
     g_mqttRxBytes += length;
-    ParseCallback(topic, (byte *)stream.get_buffer(), stream.current_length());
+    if (stream.overflowed())
+        logDroppedReport();
+    else
+        ParseCallback(topic, (byte *)stream.get_buffer(), stream.current_length());
     stream.flush();
 }
 

@@ -96,8 +96,13 @@ Without a CA certificate the connection is still encrypted, but the controller
 doesn't check that it is talking to your broker, so a device on your network
 pretending to be the broker could still collect the password. If the
 connection fails, the Web Serial log shows the TLS error (for example, an
-untrusted certificate or a host name mismatch). The **Diagnostics** panel shows
-free memory, since the printer and broker connections each use a TLS session.
+untrusted certificate or a host name mismatch).
+
+TLS costs memory: each TLS connection holds about 33 kB for as long as it is
+open, and with TLS on, the printer and the broker connections each have one.
+The **Diagnostics** panel shows free memory and the largest free block. If the
+controller runs short, the log says it dropped printer reports; X1-series
+printers send the largest reports. Switching off **Use TLS** frees that memory.
 
 ## Example automation: fully disable LEDs when the printer is off
 

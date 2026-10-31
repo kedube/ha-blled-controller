@@ -1230,7 +1230,8 @@
                         ' &nbsp; Bytes: ' + d.mqttBytesPerMin + '/min<br><br>' +
                         '<b>Memory</b><br>' +
                         '&nbsp;Free heap: ' + Math.round(d.freeHeap / 1024) + ' kB' +
-                        ' &nbsp; Lowest since boot: ' + Math.round(d.minFreeHeap / 1024) + ' kB';
+                        ' &nbsp; Lowest since boot: ' + Math.round(d.minFreeHeap / 1024) + ' kB' +
+                        ' &nbsp; Largest block: ' + Math.round(d.maxAllocHeap / 1024) + ' kB';
                     // Recalculate collapse height in case panel content grew
                     var det = document.getElementById('debugDiagDetails');
                     if (det && det.hasAttribute('open')) {
