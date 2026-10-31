@@ -132,8 +132,8 @@ static void haAddDeviceBlock(JsonDocument &doc)
     JsonArray ids = device["identifiers"].to<JsonArray>();
     ids.add(haNodeId);
     device["name"] = haDeviceName;
-    device["manufacturer"] = "BLLED";
-    device["model"] = "BL Led Controller";
+    device["manufacturer"] = "DutchDeveloper";
+    device["model"] = "BLLED Controller";
     device["sw_version"] = globalVariables.FWVersion;
     // "Visit device" link in Home Assistant opens the BLLED web interface.
     // Uses the mDNS hostname (DHCP-stable); falls back-friendly to the IP if set.
