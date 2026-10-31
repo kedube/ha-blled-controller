@@ -386,8 +386,17 @@ bool haConnect()
         haVariables.haLastConnectState = haMqtt.state();
         LogSerial.printf("[HA] connect FAILED state=%d\n", haMqtt.state());
         // lastError() is negative only when the TLS layer failed (e.g. certificate not trusted).
+        // -1 is the TLS client's catch-all, which mbedTLS words as "Generic error": the TCP
+        // connection was refused or got no answer, or the handshake timed out (10 s).
         char tlsError[96];
-        if (haSecureClient && haSecureClient->lastError(tlsError, sizeof(tlsError)) < 0)
+        int tlsResult = haSecureClient ? haSecureClient->lastError(tlsError, sizeof(tlsError)) : 0;
+        if (tlsResult == -1 && dur >= 10000)
+            LogSerial.printf("[HA] TLS handshake with %s:%d timed out\n",
+                             printerConfig.haMqttHost, printerConfig.haMqttPort);
+        else if (tlsResult == -1)
+            LogSerial.printf("[HA] No connection to %s:%d (refused or no answer) - is the broker's TLS listener on this port?\n",
+                             printerConfig.haMqttHost, printerConfig.haMqttPort);
+        else if (tlsResult < 0)
             LogSerial.printf("[HA] TLS error: %s\n", tlsError);
         return false;
     }
