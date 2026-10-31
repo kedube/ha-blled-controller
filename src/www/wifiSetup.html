@@ -397,10 +397,16 @@
             const webUser = document.getElementById("webUser").value;
             const webPass = document.getElementById("webPass").value;
 
+            if (ssid !== savedSSID && !pass) {
+                // The saved password belongs to the saved network.
+                alertToast("error", "Enter the WiFi password for the new network.");
+                return;
+            }
+
             try {
                 const res = await fetch("/submitWiFi", {
                     method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-BLLED": "1" },
                     body: `ssid=${encodeURIComponent(ssid)}&pass=${encodeURIComponent(pass)}&bssid=${encodeURIComponent(bssid)}&host=${encodeURIComponent(host)}&printerIP=${encodeURIComponent(printerIP)}&printerSerial=${encodeURIComponent(printerSerial)}&accessCode=${encodeURIComponent(accessCode)}&webUser=${encodeURIComponent(webUser)}&webPass=${encodeURIComponent(webPass)}`
 
                 });
@@ -408,20 +414,26 @@
                 if (res.ok) {
                     alertToast("success", "Settings saved. Restarting...");
                 } else {
-                    alertToast("error", "Save failed: " + res.status);
+                    alertToast("error", "Save failed: " + ((await res.text()) || res.status));
                 }
             } catch (err) {
                 alertToast("info", "Device is likely restarting.");
             }
         });
 
+        let savedSSID = "";
         async function loadPrinterConfig() {
             try {
                 const res = await fetch("/config.json");
                 const config = await res.json();
                 currentSsid = config.ssid || "";
+                savedSSID = currentSsid;
                 document.getElementById("ssid").value = currentSsid;
-                document.getElementById("password").value = config.pass || "";
+                // Stored secrets are never sent to the browser; leave the field blank to keep them.
+                if (config.hasPass) {
+                    document.getElementById("password").placeholder = "(saved - leave blank to keep)";
+                    document.getElementById("password").required = false;
+                }
                 document.getElementById("deviceName").value = config.host || "BLLED";
                 document.getElementById("printerIP").value = config.printerIP || "";
                 document.getElementById("printerSerial").value = config.printerSerial || "";
@@ -430,9 +442,9 @@
                 } else {
                     document.getElementById("openPrinterList").style.display = "inline-block";
                 }
-                document.getElementById("accessCode").value = config.accessCode || "";
+                if (config.hasAccessCode) document.getElementById("accessCode").placeholder = "(saved - leave blank to keep)";
                 document.getElementById("webUser").value = config.webUser || "";
-                document.getElementById("webPass").value = config.webPass || "";
+                if (config.hasWebPass) document.getElementById("webPass").placeholder = "(saved - leave blank to keep; clear username to remove login)";
 
                 // Show current SSID in trigger without scanning
                 if (currentSsid) setTrigger('', currentSsid);

@@ -191,15 +191,13 @@ void loadFileSystem()
         saveFileSystem();
         return;
     }
-    size_t size = configFile.size();
-    std::unique_ptr<char[]> buf(new char[size]);
-    configFile.readBytes(buf.get(), size);
-
     JsonDocument json;
-    auto deserializeError = deserializeJson(json, buf.get());
+    auto deserializeError = deserializeJson(json, configFile);
 
     if (!deserializeError)
     {
+        // strlcpy + "| \"\"": a missing key or an over-long value must not crash or
+        // overflow at boot (that would be a boot loop needing a USB reflash).
         strlcpy(globalVariables.SSID, json["ssid"] | "", sizeof(globalVariables.SSID));
         strlcpy(globalVariables.APPW, json["appw"] | "", sizeof(globalVariables.APPW));
         const char *hostValue = json["host"] | "BLLED";
