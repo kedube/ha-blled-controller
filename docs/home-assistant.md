@@ -85,8 +85,11 @@ password cross your network unencrypted. If your broker has a TLS listener
 1. Switch on **Use TLS**. The port changes to 8883 unless you set a custom one.
 2. Optionally paste the **CA certificate** (PEM) that signed the broker's
    certificate: your own CA for a self-signed setup, or the public root (such
-   as ISRG Root X1 for Let's Encrypt). The **Broker Host** must then match a
-   name in the broker's certificate.
+   as ISRG Root X1 for Let's Encrypt). The **Broker Host** must then be a
+   name listed in the broker's certificate, such as `homeassistant.local`.
+   Don't use an IP address here: the controller can't match a certificate to
+   an IP address, even one the certificate lists, so the certificate check
+   fails.
 3. Save. The device reboots and connects over TLS.
 
 Without a CA certificate the connection is still encrypted, but the controller

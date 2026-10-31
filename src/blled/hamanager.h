@@ -397,7 +397,14 @@ bool haConnect()
             LogSerial.printf("[HA] No connection to %s:%d (refused or no answer) - is the broker's TLS listener on this port?\n",
                              printerConfig.haMqttHost, printerConfig.haMqttPort);
         else if (tlsResult < 0)
+        {
             LogSerial.printf("[HA] TLS error: %s\n", tlsError);
+            // This mbedTLS (2.28) matches the host only against a certificate's names, never its
+            // IP address entries, so a broker entered by IP fails the check even with the right CA.
+            IPAddress hostIp;
+            if (tlsResult == MBEDTLS_ERR_X509_CERT_VERIFY_FAILED && hostIp.fromString(printerConfig.haMqttHost))
+                LogSerial.println(F("[HA] The controller can't match a certificate to an IP address. Set Broker Host to a name in the broker's certificate (e.g. homeassistant.local)"));
+        }
         return false;
     }
 

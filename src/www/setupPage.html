@@ -153,7 +153,8 @@
                                 <textarea id="haMqttCaCert" name="haMqttCaCert" rows="6" spellcheck="false"
                                     placeholder="-----BEGIN CERTIFICATE-----"></textarea>
                                 <small>With a CA certificate, the controller checks that it is talking to your broker;
-                                    the Broker Host must match a name in the broker's certificate. Without one, the
+                                    the Broker Host must be a name in the broker's certificate (such as
+                                    homeassistant.local), not an IP address. Without one, the
                                     connection is still encrypted, but the broker's identity isn't checked.</small>
                             </div>
                             <small>Entities (light, mode, enable) are auto-created in Home Assistant via MQTT
