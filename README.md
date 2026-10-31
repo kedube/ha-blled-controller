@@ -2,9 +2,9 @@
 
 The BL Led Controller is an ESP32 based device that connects to your Bambulab X1,X1C,P1P Or P1S and controls the LED strip based on the state of the printer.
 
-> **This fork** ([plugowski/HomeAssistant_BLLEDController](https://github.com/plugowski/HomeAssistant_BLLEDController)) builds on DutchDeveloper's original firmware and adds full **Home Assistant** integration plus independent control of the LED strip. See the [Home Assistant guide](docs/home-assistant.md) for full details.
+> **This fork** ([kedube/ha-blled-controller](https://github.com/kedube/ha-blled-controller)) is based on [plugowski/HomeAssistant_BLLEDController](https://github.com/plugowski/HomeAssistant_BLLEDController), Pawel Lugowski's fork of DutchDeveloper's original firmware. The **Home Assistant** integration and independent control of the LED strip are plugowski's work. This fork adds security fixes, an encrypted connection to the Home Assistant broker and reliability fixes on top; see [Changes in this fork](#changes-in-this-fork). See the [Home Assistant guide](docs/home-assistant.md) for full details.
 
-### What this fork adds
+### Home Assistant features (from plugowski's fork)
 
 - **Home Assistant via MQTT Discovery** – the device opens a second MQTT connection to your Home Assistant broker (Mosquitto) and auto-creates entities with no YAML: a **light** (RGB **and** warm/cold-white colour temperature + brightness, with smooth transitions), a **mode select**, and a master **enable switch**.
 - **Three operating modes** – *Printer only* (original behaviour), *Home Assistant only* (HA fully controls the strip), and *Hybrid* (the printer drives the strip but Home Assistant can override colour/temperature or force it off; the override is released when a print starts or the printer's chamber light is toggled).
@@ -16,9 +16,41 @@ The BL Led Controller is an ESP32 based device that connects to your Bambulab X1
 ![home assistant setup](./docs/home_assistant_setup.jpg)
 ![home assistant preview](./docs/home_assistant_preview.jpg)
 
+### Changes in this fork
+
+Compared with plugowski's fork (2.4.2), version 2.4.3 makes these changes.
+
+**Security**
+
+- **Upstream security fixes** – brings in [DutchDevelop/BLLEDController#83](https://github.com/DutchDevelop/BLLEDController/pull/83) by brossow, which plugowski's fork doesn't include:
+  - With a web login set, every page and setting needs it, including firmware updates, config restore and the Web Serial log.
+  - Saved passwords and the printer access code are never sent back to the browser.
+  - Other websites can't change settings or flash firmware through your browser.
+  - Factory reset asks you to confirm.
+  - A nearby Wi-Fi network's name can't inject script into the setup page.
+  - Another device can't redirect the printer login to itself by answering printer discovery.
+- **The same protections for the Home Assistant settings** – changes to the Home Assistant connection, the network settings and the enable switch need the login and can't come from another website. The broker password is no longer shown on the setup page; leave the field blank to keep it.
+- **Encrypted Home Assistant connection (TLS)** – optional. With your CA certificate, the controller also checks that it is talking to your broker. See [Encrypting the broker connection](docs/home-assistant.md#encrypting-the-broker-connection-tls).
+- **Safer config restore** – the file must be a BLLED config (16 KB at most); otherwise the current settings stay as they are.
+
+**Reliability**
+
+- **Larger firmware slots** – 1.875 MB per slot instead of 1.25 MB, so new features keep fitting (see the flash layout note below).
+- **Clear firmware update errors** – if you choose the wrong file or the firmware doesn't fit, the update page says so and the current firmware keeps running.
+- **No hang when mDNS fails** – the controller logs the error and keeps running instead of stopping at boot.
+- **Memory in Diagnostics** – the Diagnostics panel shows free memory and the lowest it has been since boot.
+- **Repeatable builds** – the web server and Web Serial libraries are pinned to exact versions.
+
+**Docs and builds**
+
+- The [manual](docs/manual.md) says that passwords are stored unencrypted on the device and that config backups contain them in plain text.
+- GitHub Actions builds the firmware on every push and pull request.
+
 ### Flashing and Setup
 
-> **For this fork (with Home Assistant support):** flash the latest build from **[tech.lugowski.dev/firmware](https://tech.lugowski.dev/firmware/)**. The original DutchDeveloper flasher below installs the upstream firmware *without* the Home Assistant features.
+> **For this fork:** download the firmware from the latest run of the [Build firmware workflow](https://github.com/kedube/ha-blled-controller/actions/workflows/build.yml) (you need to be signed in to GitHub; each download expires 90 days after its build), or build it yourself (see below). The download contains two files. If the controller already runs BLLED firmware, install the `.bin.ota` file from its **Firmware Update** page. For a new ESP32, flash the full `.bin` over USB, for example with `esptool.py write_flash 0x0 BLLC_V<version>.bin`.
+>
+> plugowski's builds at [tech.lugowski.dev/firmware](https://tech.lugowski.dev/firmware/) don't include this fork's changes. The original DutchDeveloper flasher below installs the upstream firmware *without* the Home Assistant features.
 
 1. go to the [Web Flasher](https://dutchdevelop.github.io/blledsetup/) (Or [here](https://softwarecrash.github.io/BLLED-Flasher/) for Nightly and Dev builds)
 2. connect your ESP32
@@ -61,7 +93,7 @@ To contribute to the BL Led Controller project, you'll need the following tools:
 - [qpdf](https://qpdf.sourceforge.io/): A command-line tool and library of compression tools (`gzip`)
 
 ### Building and Running the Project
-1. Clone the repository to your local machine.
+1. Clone the repository to your local machine: `git clone https://github.com/kedube/ha-blled-controller.git`
 2. Open the project folder in Visual Studio Code.
 3. Ensure that PlatformIO is installed and configured in your Visual Studio Code environment.
 4. Connect your BLLED device ESP32 to your computer.
@@ -92,10 +124,14 @@ The BL Led Controller is released under Creative Commons Attribution-NonCommerci
 - **[xps3riments](https://github.com/xps3riments)**: Inspiration for the foundation of the code
 - **[longrackslabs](https://github.com/longrackslabs)**: Build process, documentation, developer & community support
 - **[SoftWareCrash](https://github.com/softwarecrash)**: Any small unimportant changes
-- **[plugowski (Pawel Lugowski)](https://github.com/plugowski)**: This fork – Home Assistant MQTT Discovery integration, operating modes (Printer / HA / Hybrid), colour-temperature (warm/cold white) control, live state mirroring, master enable switch, offline-dim behaviour, mDNS and web UI improvements. Builds: [tech.lugowski.dev/firmware](https://tech.lugowski.dev/firmware/)
+- **[plugowski (Pawel Lugowski)](https://github.com/plugowski)**: The original Home Assistant fork ([plugowski/HomeAssistant_BLLEDController](https://github.com/plugowski/HomeAssistant_BLLEDController)) – Home Assistant MQTT Discovery integration, operating modes (Printer / HA / Hybrid), colour-temperature (warm/cold white) control, live state mirroring, master enable switch, offline-dim behaviour, mDNS and web UI improvements. Builds: [tech.lugowski.dev/firmware](https://tech.lugowski.dev/firmware/)
+- **[brossow](https://github.com/brossow)**: Security fixes for login, secrets and cross-site requests ([DutchDevelop/BLLEDController#83](https://github.com/DutchDevelop/BLLEDController/pull/83))
+- **[kedube (Katherine Dubé)](https://github.com/kedube)**: This fork – security fixes for the Home Assistant features, TLS for the broker connection, safer config restore and firmware updates, the larger flash layout and CI builds
 
 ### Author
 
 This project was created by [DutchDeveloper](https://dutchdevelop.com/).
 
-The Home Assistant integration fork is maintained by [Pawel Lugowski](https://tech.lugowski.dev/) ([plugowski](https://github.com/plugowski)).
+The Home Assistant integration was created by [Pawel Lugowski](https://tech.lugowski.dev/) ([plugowski](https://github.com/plugowski)) in [plugowski/HomeAssistant_BLLEDController](https://github.com/plugowski/HomeAssistant_BLLEDController).
+
+This fork ([kedube/ha-blled-controller](https://github.com/kedube/ha-blled-controller)) is maintained by [Katherine Dubé](https://github.com/kedube).
