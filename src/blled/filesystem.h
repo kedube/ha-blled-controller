@@ -134,6 +134,8 @@ void saveFileSystem()
     json["haMqttPort"] = printerConfig.haMqttPort;
     json["haMqttUser"] = printerConfig.haMqttUser;
     json["haMqttPass"] = printerConfig.haMqttPass;
+    json["haMqttTls"] = printerConfig.haMqttTls;
+    json["haMqttCaCert"] = printerConfig.haMqttCaCert;
     json["offlineDimEnabled"] = printerConfig.offlineDimEnabled;
     json["offlineDimAfterSec"] = printerConfig.offlineDimAfterSec;
     json["offlineDimBrightness"] = printerConfig.offlineDimBrightness;
@@ -281,6 +283,8 @@ void loadFileSystem()
         printerConfig.haMqttPort = json["haMqttPort"] | 1883;
         strlcpy(printerConfig.haMqttUser, json["haMqttUser"] | "", sizeof(printerConfig.haMqttUser));
         strlcpy(printerConfig.haMqttPass, json["haMqttPass"] | "", sizeof(printerConfig.haMqttPass));
+        printerConfig.haMqttTls = json["haMqttTls"] | false;
+        printerConfig.haMqttCaCert = json["haMqttCaCert"] | "";
         printerConfig.offlineDimEnabled = json["offlineDimEnabled"] | true;
         printerConfig.offlineDimAfterSec = json["offlineDimAfterSec"] | 60;
         printerConfig.offlineDimBrightness = json["offlineDimBrightness"] | 5;

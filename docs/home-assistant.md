@@ -76,6 +76,26 @@ Assistant — see the automation below.
 4. In Home Assistant, the device + 3 entities appear automatically under
    *Settings → Devices & Services → MQTT*.
 
+### Encrypting the broker connection (TLS)
+
+By default the broker connection is plain MQTT, so the broker username and
+password cross your network unencrypted. If your broker has a TLS listener
+(Mosquitto usually uses port 8883):
+
+1. Switch on **Use TLS**. The port changes to 8883 unless you set a custom one.
+2. Optionally paste the **CA certificate** (PEM) that signed the broker's
+   certificate: your own CA for a self-signed setup, or the public root (such
+   as ISRG Root X1 for Let's Encrypt). The **Broker Host** must then match a
+   name in the broker's certificate.
+3. Save. The device reboots and connects over TLS.
+
+Without a CA certificate the connection is still encrypted, but the controller
+doesn't check that it is talking to your broker, so a device on your network
+pretending to be the broker could still collect the password. If the
+connection fails, the Web Serial log shows the TLS error (for example, an
+untrusted certificate or a host name mismatch). The **Diagnostics** panel shows
+free memory, since the printer and broker connections each use a TLS session.
+
 ## Example automation: fully disable LEDs when the printer is off
 
 This uses the **enable** switch so the strip is forced off regardless of mode.

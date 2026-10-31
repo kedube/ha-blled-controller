@@ -12,13 +12,15 @@
 //   * select -> operating mode (Printer / HomeAssistant / Hybrid)
 //   * switch -> master enable (force the strip fully off)
 //
-// The printer connection (TLS, port 8883) is untouched; this is a plain MQTT
-// connection (default port 1883) to Home Assistant.
+// The printer connection (TLS, port 8883) is untouched; this connection to Home
+// Assistant is plain MQTT (default port 1883), or TLS (usually port 8883) when
+// haMqttTls is set, so the broker username/password aren't sent in the clear.
 // ---------------------------------------------------------------------------
 
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
@@ -27,7 +29,12 @@
 #include "filesystem.h"
 
 WiFiClient haWifiClient;
+WiFiClientSecure *haSecureClient = nullptr; // created in setupHa() only when haMqttTls is set
 PubSubClient haMqtt(haWifiClient);
+
+// setCACert() keeps only a pointer, so the certificate in use is a copy taken at setup that
+// never changes while running (changing it in the web UI reboots the controller).
+static String haActiveCaCert;
 
 static String haNodeId;       // unique id, e.g. blled_a1b2c3d4e5f6
 static String haDeviceName;   // friendly device name (= mDNS host)
@@ -356,8 +363,9 @@ bool haConnect()
     g_haConnectAttempts++;
     Serial.printf("[HA] connect attempt #%d host=%s port=%d\n",
                   g_haConnectAttempts, printerConfig.haMqttHost, printerConfig.haMqttPort);
-    LogSerial.printf("[HA] connect #%d -> %s:%d\n",
-                     g_haConnectAttempts, printerConfig.haMqttHost, printerConfig.haMqttPort);
+    LogSerial.printf("[HA] connect #%d -> %s:%d%s\n",
+                     g_haConnectAttempts, printerConfig.haMqttHost, printerConfig.haMqttPort,
+                     printerConfig.haMqttTls ? " (TLS)" : "");
 
     String clientId = haNodeId + "-" + String(random(0xffff), HEX);
 
@@ -377,6 +385,10 @@ bool haConnect()
         haVariables.connected = false;
         haVariables.haLastConnectState = haMqtt.state();
         LogSerial.printf("[HA] connect FAILED state=%d\n", haMqtt.state());
+        // lastError() is negative only when the TLS layer failed (e.g. certificate not trusted).
+        char tlsError[96];
+        if (haSecureClient && haSecureClient->lastError(tlsError, sizeof(tlsError)) < 0)
+            LogSerial.printf("[HA] TLS error: %s\n", tlsError);
         return false;
     }
 
@@ -430,13 +442,34 @@ void setupHa()
     haMqtt.setServer(printerConfig.haMqttHost, printerConfig.haMqttPort);
     haMqtt.setBufferSize(1024);
     haMqtt.setSocketTimeout(5); // cap blocking socket ops at 5 s
-    haWifiClient.setTimeout(5); // cap TCP connect at 5 s
+    if (printerConfig.haMqttTls)
+    {
+        haSecureClient = new WiFiClientSecure();
+        haActiveCaCert = printerConfig.haMqttCaCert;
+        if (haActiveCaCert.length() > 0)
+            haSecureClient->setCACert(haActiveCaCert.c_str());
+        else
+            haSecureClient->setInsecure(); // encrypted, but the broker's identity isn't checked
+        haSecureClient->setTimeout(5);           // cap TCP connect at 5 s
+        haSecureClient->setHandshakeTimeout(10); // default 120 s would stall the reconnect loop
+        haMqtt.setClient(*haSecureClient);
+    }
+    else
+    {
+        haWifiClient.setTimeout(5); // cap TCP connect at 5 s
+    }
     haMqtt.setCallback(haCallback);
 
     LogSerial.print(F("[HA] Configured, node id: "));
     LogSerial.println(haNodeId);
+    if (printerConfig.haMqttTls)
+        LogSerial.println(haActiveCaCert.length() > 0 ? F("[HA] TLS on, broker certificate checked against the CA")
+                                                      : F("[HA] TLS on, broker certificate NOT checked (no CA set)"));
 
-    haConnect();
+    // A TLS handshake needs more stack than setup() has (8 kB), so with TLS the first
+    // connection is left to haTask, which starts right after this.
+    if (!printerConfig.haMqttTls)
+        haConnect();
 }
 
 void haLoop()
@@ -527,11 +560,14 @@ void startHaMqttTask()
     if (haTaskHandle != NULL)
         return;
 
+    // A TLS handshake needs far more stack than plain MQTT (the printer's TLS task has 20 kB).
+    const uint32_t stackSize = printerConfig.haMqttTls ? 20480 : 10240;
+
     BaseType_t result;
 #if CONFIG_FREERTOS_UNICORE
-    result = xTaskCreate(haTask, "haTask", 10240, NULL, 1, &haTaskHandle);
+    result = xTaskCreate(haTask, "haTask", stackSize, NULL, 1, &haTaskHandle);
 #else
-    result = xTaskCreatePinnedToCore(haTask, "haTask", 10240, NULL, 1, &haTaskHandle, 1);
+    result = xTaskCreatePinnedToCore(haTask, "haTask", stackSize, NULL, 1, &haTaskHandle, 1);
 #endif
 
     if (result == pdPASS)
