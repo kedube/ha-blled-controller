@@ -856,6 +856,23 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
     }
 }
 
+// What to tell the person when a firmware upload fails. The running firmware is untouched:
+// the image goes to the other update slot and is only booted once it is complete and valid.
+String otaErrorMessage(uint8_t error)
+{
+    switch (error)
+    {
+    case UPDATE_ERROR_SPACE:
+        return F("This firmware is larger than this controller's update slot. Flash the full .bin "
+                 "once over USB to switch to the larger flash layout. Nothing was changed.");
+    case UPDATE_ERROR_MAGIC_BYTE:
+        return F("This is not a firmware update image. Use the .bin.ota file; the full .bin is for "
+                 "USB flashing. Nothing was changed.");
+    default:
+        return String("Update failed: ") + Update.errorString() + ". Nothing was changed.";
+    }
+}
+
 void setupWebserver()
 {
     // Without mDNS the web UI is still reachable by IP, so carry on: stopping here would leave
@@ -978,6 +995,13 @@ void setupWebserver()
         if (!fromOwnPage(request)) {
             return refuseForeign(request);
         }
+        // As for /configrestore: NULL = no complete image arrived, "" = written, otherwise
+        // why it failed. Only a written image restarts the controller.
+        const char *failed = (const char *)request->_tempObject;
+        if (failed == NULL || failed[0] != '\0') {
+            request->send(500, "text/plain", failed ? failed : "No complete firmware received. Nothing was changed.");
+            return;
+        }
         request->send(200, "text/plain", "OK");
         LogSerial.println(F("OTA Upload done. Marking for restart."));
         shouldRestart = true;
@@ -992,24 +1016,28 @@ void setupWebserver()
                 return;
             }
             LogSerial.printf("[OTA] Start: %s\n", filename.c_str());
-            if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
-                Update.printError(LogSerial);
+            if (Update.isRunning()) {
+                Update.abort(); // an earlier upload was cut off; begin() would refuse
             }
+            Update.begin(UPDATE_SIZE_UNKNOWN);
         }
-        if (!otaAuthorized) {
+        if (!otaAuthorized || request->_tempObject != NULL) {
             return;
         }
 
-        if (Update.write(data, len) != len) {
-            Update.printError(LogSerial);
+        if (!Update.hasError()) {
+            Update.write(data, len);
+        }
+        if (final && !Update.hasError()) {
+            Update.end(true);
         }
 
-        if (final) {
-            if (Update.end(true)) {
-                LogSerial.printf("[OTA] Success (%u bytes). Awaiting reboot...\n", index + len);
-            } else {
-                Update.printError(LogSerial);
-            }
+        if (Update.hasError()) {
+            Update.printError(LogSerial);
+            request->_tempObject = strdup(otaErrorMessage(Update.getError()).c_str());
+        } else if (final) {
+            LogSerial.printf("[OTA] Success (%u bytes). Awaiting reboot...\n", index + len);
+            request->_tempObject = strdup("");
         } });
 
     // The log can contain the printer IP/serial; protect it like the other pages.

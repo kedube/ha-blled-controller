@@ -94,6 +94,13 @@
 
         function completeHandler(event) {
             _("progressBar").value = 0;
+            var xhr = event.target;
+            if (xhr.status !== 200) {
+                // The controller says why (wrong file, too large, ...); the current firmware keeps running.
+                _('status').textContent = xhr.responseText || ("Update failed (" + xhr.status + ").");
+                alertToast("error", "Firmware update failed.");
+                return;
+            }
             _('status').textContent = "Upload complete. Rebooting...";
             alertToast("success", "Firmware uploaded successfully!");
 

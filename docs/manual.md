@@ -401,7 +401,7 @@ Tests MQTT reachability of the printer with the current IP/serial.
 Access this page at: http://[device-ip]/fwupdate
 
 
-Allows you to upload and install a new firmware binary file (`.bin`) directly to the controller.
+Allows you to upload and install a new firmware update file (`.bin.ota`) directly to the controller.
 
 ---
 
@@ -410,7 +410,7 @@ Allows you to upload and install a new firmware binary file (`.bin`) directly to
 #### 📄 File Input
 
 **Type:** File upload  
-**Accepted File:** `.bin` (firmware binary)  
+**Accepted File:** `.bin.ota` (firmware update image; the full `.bin` is for USB flashing)  
 **Form Target:** `/update` (POST)
 
 - Uploads a new firmware image to flash memory  
@@ -418,6 +418,8 @@ Allows you to upload and install a new firmware binary file (`.bin`) directly to
 - Progress and status are displayed below
 
 > ⚠️ The device will reboot automatically after a successful update.
+
+If the update fails, the page shows why and the current firmware keeps running. A firmware that is larger than the controller's flash layout allows needs to be flashed once over USB (see **Flash layout** in the README).
 
 ---
 
