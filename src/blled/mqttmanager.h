@@ -144,6 +144,8 @@ void connectMqtt()
             Serial.print(F("[MQTT] connected, subscribing to: "));
             Serial.println(report_topic);
             stream.flush(); // discard any part of a report left over from the old connection
+            LogSerial.printf("[MQTT] Connected to printer (free heap %u, largest free block %u, unused task stack %u)\n",
+                             ESP.getFreeHeap(), ESP.getMaxAllocHeap(), uxTaskGetStackHighWaterMark(NULL));
             mqttClient.subscribe(report_topic.c_str());
             printerVariables.online = true;
             printerVariables.disconnectMQTTms = 0;

@@ -100,9 +100,12 @@ untrusted certificate or a host name mismatch).
 
 TLS costs memory: each TLS connection holds about 33 kB for as long as it is
 open, and with TLS on, the printer and the broker connections each have one.
-The **Diagnostics** panel shows free memory and the largest free block. If the
-controller runs short, the log says it dropped printer reports; X1-series
-printers send the largest reports. Switching off **Use TLS** frees that memory.
+On the usual BLLED board (an ESP32 without PSRAM) that may not leave enough
+room. Signs of running short are `SSL - Memory allocation failed` in the log,
+dropped printer reports, printer timeouts (-4) and Web Serial failing to
+connect. If you see them, switch off **Use TLS**. The log shows free memory
+each time a connection is made, and the **Diagnostics** panel shows free
+memory and the largest free block.
 
 ## Example automation: fully disable LEDs when the printer is off
 

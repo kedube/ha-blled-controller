@@ -404,11 +404,18 @@ bool haConnect()
             IPAddress hostIp;
             if (tlsResult == MBEDTLS_ERR_X509_CERT_VERIFY_FAILED && hostIp.fromString(printerConfig.haMqttHost))
                 LogSerial.println(F("[HA] The controller can't match a certificate to an IP address. Set Broker Host to a name in the broker's certificate (e.g. homeassistant.local)"));
+            // Each TLS session needs two 16 kB buffers in one piece; the printer connection
+            // already holds a pair.
+            if (tlsResult == MBEDTLS_ERR_SSL_ALLOC_FAILED)
+                LogSerial.printf("[HA] Not enough memory for a second TLS connection (free heap %u, largest free block %u). Switch off Use TLS for Home Assistant.\n",
+                                 ESP.getFreeHeap(), ESP.getMaxAllocHeap());
         }
         return false;
     }
 
-    LogSerial.println(F("[HA] Connected"));
+    // What is left after connecting shows whether there is room for TLS.
+    LogSerial.printf("[HA] Connected (free heap %u, largest free block %u, unused task stack %u)\n",
+                     ESP.getFreeHeap(), ESP.getMaxAllocHeap(), uxTaskGetStackHighWaterMark(NULL));
     haVariables.connected = true;
     haVariables.haLastConnectState = 0;
 

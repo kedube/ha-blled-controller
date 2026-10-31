@@ -8,9 +8,8 @@
 #define BUFFER_INCREMENTS 1024
 #define MAX_BUFFER_SIZE 65536
 
-// Collects one MQTT message at a time. The buffer keeps its size between messages: printer
-// reports are similar in size, and shrinking and regrowing it for every report fragments the
-// heap until a report no longer fits.
+// Collects one MQTT message at a time and shrinks back after each one, so the memory is free
+// between reports (keeping a report-sized block for good starves the TLS connections).
 class AutoGrowBufferStream : public Stream
 {
 private:
@@ -64,11 +63,18 @@ public:
         return 1;
     }
 
-    // Ready for the next message; keeps the allocation (see above).
+    // Ready for the next message; gives back what the last one needed beyond the first step.
     virtual void flush() {
         this->_len = 0;
         this->_overflow = false;
         this->_dropped = 0;
+        if (this->buffer_size > BUFFER_INCREMENTS) {
+            auto tmp = (char*)realloc(this->_buffer, BUFFER_INCREMENTS);
+            if (tmp != NULL) {
+                this->_buffer = tmp;
+                this->buffer_size = BUFFER_INCREMENTS;
+            }
+        }
     }
 
     int peek() {

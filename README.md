@@ -30,7 +30,7 @@ Compared with plugowski's fork (2.4.2), version 2.4.3 makes these changes.
   - A nearby Wi-Fi network's name can't inject script into the setup page.
   - Another device can't redirect the printer login to itself by answering printer discovery.
 - **The same protections for the Home Assistant settings** – changes to the Home Assistant connection, the network settings and the enable switch need the login and can't come from another website. The broker password is no longer shown on the setup page; leave the field blank to keep it.
-- **Encrypted Home Assistant connection (TLS)** – optional. With your CA certificate, the controller also checks that it is talking to your broker. See [Encrypting the broker connection](docs/home-assistant.md#encrypting-the-broker-connection-tls).
+- **Encrypted Home Assistant connection (TLS)** – optional. With your CA certificate, the controller also checks that it is talking to your broker. It needs about 33 kB more memory, which a board without PSRAM may not have. See [Encrypting the broker connection](docs/home-assistant.md#encrypting-the-broker-connection-tls).
 - **Safer config restore** – the file must be a BLLED config (16 KB at most); otherwise the current settings stay as they are.
 
 **Reliability**
@@ -39,7 +39,7 @@ Compared with plugowski's fork (2.4.2), version 2.4.3 makes these changes.
 - **Clear firmware update errors** – if you choose the wrong file or the firmware doesn't fit, the update page says so and the current firmware keeps running.
 - **No hang when mDNS fails** – the controller logs the error and keeps running instead of stopping at boot.
 - **Memory in Diagnostics** – the Diagnostics panel shows free memory, the lowest it has been since boot and the largest free block.
-- **Printer reports and low memory** – the buffer for printer reports keeps its size instead of shrinking and regrowing for every report, which fragmented memory. A report that still doesn't fit is dropped with one log line, instead of a "Failed to grow buffer" line for every byte that didn't fit.
+- **Printer reports and low memory** – a report that doesn't fit in memory is dropped with one log line, instead of a "Failed to grow buffer" line for every byte that didn't fit, and the log shows free memory each time a connection is made.
 - **Repeatable builds** – the web server and Web Serial libraries are pinned to exact versions.
 
 **Docs and builds**
