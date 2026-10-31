@@ -81,21 +81,13 @@ label {
 input[type="text"],
 input[type="password"],
 input[type="file"],
-select,
-textarea {
+select {
   width: 100%;
   padding: 6px;
   margin-bottom: 8px;
   box-sizing: border-box;
   border: 1px solid #ccc;
   border-radius: 3px;
-}
-
-/* PEM certificate fields. No drag-resize: the settings panels have a fixed measured height. */
-textarea {
-  font-family: monospace;
-  font-size: 11px;
-  resize: none;
 }
 
 input[type="range"] {

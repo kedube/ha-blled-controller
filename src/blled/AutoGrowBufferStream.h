@@ -9,7 +9,7 @@
 #define MAX_BUFFER_SIZE 65536
 
 // Collects one MQTT message at a time and shrinks back after each one, so the memory is free
-// between reports (keeping a report-sized block for good starves the TLS connections).
+// between reports (keeping a report-sized block for good can run the controller out of memory).
 class AutoGrowBufferStream : public Stream
 {
 private:

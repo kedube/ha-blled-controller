@@ -30,7 +30,6 @@ Compared with plugowski's fork (2.4.2), version 2.4.3 makes these changes.
   - A nearby Wi-Fi network's name can't inject script into the setup page.
   - Another device can't redirect the printer login to itself by answering printer discovery.
 - **The same protections for the Home Assistant settings** – changes to the Home Assistant connection, the network settings and the enable switch need the login and can't come from another website. The broker password is no longer shown on the setup page; leave the field blank to keep it.
-- **Encrypted Home Assistant connection (TLS)** – optional. With your CA certificate, the controller also checks that it is talking to your broker. It needs about 33 kB more memory, which a board without PSRAM may not have. See [Encrypting the broker connection](docs/home-assistant.md#encrypting-the-broker-connection-tls).
 - **Safer config restore** – the file must be a BLLED config (16 KB at most); otherwise the current settings stay as they are.
 
 **Reliability**
@@ -127,7 +126,7 @@ The BL Led Controller is released under Creative Commons Attribution-NonCommerci
 - **[SoftWareCrash](https://github.com/softwarecrash)**: Any small unimportant changes
 - **[plugowski (Pawel Lugowski)](https://github.com/plugowski)**: The original Home Assistant fork ([plugowski/HomeAssistant_BLLEDController](https://github.com/plugowski/HomeAssistant_BLLEDController)) – Home Assistant MQTT Discovery integration, operating modes (Printer / HA / Hybrid), colour-temperature (warm/cold white) control, live state mirroring, master enable switch, offline-dim behaviour, mDNS and web UI improvements. Builds: [tech.lugowski.dev/firmware](https://tech.lugowski.dev/firmware/)
 - **[brossow](https://github.com/brossow)**: Security fixes for login, secrets and cross-site requests ([DutchDevelop/BLLEDController#83](https://github.com/DutchDevelop/BLLEDController/pull/83))
-- **[kedube (Katherine Dubé)](https://github.com/kedube)**: This fork – security fixes for the Home Assistant features, TLS for the broker connection, safer config restore and firmware updates, the larger flash layout and CI builds
+- **[kedube (Katherine Dubé)](https://github.com/kedube)**: This fork – security fixes for the Home Assistant features, safer config restore and firmware updates, the larger flash layout and CI builds
 
 ### Author
 

@@ -198,8 +198,6 @@ void handleGetConfig(AsyncWebServerRequest *request)
     doc["haMqttPort"] = printerConfig.haMqttPort;
     doc["haMqttUser"] = printerConfig.haMqttUser;
     doc["hasHaMqttPass"] = strlen(printerConfig.haMqttPass) > 0; // never send the secret itself
-    doc["haMqttTls"] = printerConfig.haMqttTls;
-    doc["haMqttCaCert"] = printerConfig.haMqttCaCert; // a CA certificate is public
     doc["offlineDimEnabled"] = printerConfig.offlineDimEnabled;
     doc["offlineDimAfterSec"] = printerConfig.offlineDimAfterSec;
     doc["offlineDimBrightness"] = printerConfig.offlineDimBrightness;
@@ -341,18 +339,8 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
         return req->hasParam(name, true) ? req->getParam(name, true)->value().toInt() : fallback;
     };
 
-    // Refuse a CA certificate that isn't PEM before anything is changed, rather than save one
-    // the TLS connection can't use.
-    String haCaCert = getSafeParamValue(request, "haMqttCaCert");
-    haCaCert.replace("\r\n", "\n");
-    haCaCert.trim();
-    if (haCaCert.length() > 6144 ||
-        (haCaCert.length() > 0 && haCaCert.indexOf("-----BEGIN CERTIFICATE-----") < 0))
-    {
-        request->send(400, "text/plain", "The CA certificate must be in PEM format (-----BEGIN CERTIFICATE-----), up to 6 kB.");
-        return;
-    }
 
+    
         String newHost = getSafeParamValue(request, "deviceName", globalVariables.Host.c_str());
         newHost.trim();
         if (newHost.length() == 0)
@@ -432,8 +420,6 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
     int oldHaPort = printerConfig.haMqttPort;
     String oldHaUser = printerConfig.haMqttUser;
     String oldHaPass = printerConfig.haMqttPass;
-    bool oldHaTls = printerConfig.haMqttTls;
-    String oldHaCaCert = printerConfig.haMqttCaCert;
 
     printerConfig.ledControlMode = getSafeParamInt(request, "ledControlMode", printerConfig.ledControlMode);
     // haEnabled is derived from mode — any mode that uses HA enables the connection
@@ -448,8 +434,6 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
         printerConfig.haMqttPass[0] = '\0';
     else if (haPass.length() > 0)
         strlcpy(printerConfig.haMqttPass, haPass.c_str(), sizeof(printerConfig.haMqttPass));
-    printerConfig.haMqttTls = request->hasParam("haMqttTls", true);
-    printerConfig.haMqttCaCert = haCaCert;
     printerConfig.offlineDimEnabled = request->hasParam("offlineDimEnabled", true);
     printerConfig.offlineDimAfterSec = getSafeParamInt(request, "offlineDimAfterSec", 60);
     printerConfig.offlineDimBrightness = getSafeParamInt(request, "offlineDimBrightness", 5);
@@ -468,9 +452,7 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
                          (oldHaHost != String(printerConfig.haMqttHost)) ||
                          (oldHaPort != printerConfig.haMqttPort) ||
                          (oldHaUser != String(printerConfig.haMqttUser)) ||
-                         (oldHaPass != String(printerConfig.haMqttPass)) ||
-                         (oldHaTls != printerConfig.haMqttTls) ||
-                         (oldHaCaCert != printerConfig.haMqttCaCert);
+                         (oldHaPass != String(printerConfig.haMqttPass));
 
     saveFileSystem();
     LogSerial.println(F("Packet received from setuppage"));
@@ -811,7 +793,7 @@ void handleDiag(AsyncWebServerRequest *request)
     doc["rssi"]              = WiFi.RSSI();
     doc["mqttMsgsPerMin"]    = g_mqttRxMsgsPerMin;
     doc["mqttBytesPerMin"]   = g_mqttRxBytesPerMin;
-    doc["freeHeap"]          = freeMemory();       // each TLS connection takes tens of kB
+    doc["freeHeap"]          = freeMemory();       // the printer's TLS connection holds about 33 kB
     doc["minFreeHeap"]       = minFreeMemory();
     doc["maxAllocHeap"]      = largestFreeBlock(); // a printer report must fit in one block
     String json;

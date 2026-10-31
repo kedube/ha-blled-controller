@@ -76,36 +76,19 @@ Assistant — see the automation below.
 4. In Home Assistant, the device + 3 entities appear automatically under
    *Settings → Devices & Services → MQTT*.
 
-### Encrypting the broker connection (TLS)
+### Protecting the broker password
 
-By default the broker connection is plain MQTT, so the broker username and
-password cross your network unencrypted. If your broker has a TLS listener
-(Mosquitto usually uses port 8883):
+The broker connection is plain MQTT, so the broker username and password cross
+your network unencrypted. TLS isn't offered: the usual BLLED board (an ESP32
+without PSRAM) doesn't have the memory for a second TLS connection next to the
+printer's, and with printers that send large status reports, trying it stops
+the controller working.
 
-1. Switch on **Use TLS**. The port changes to 8883 unless you set a custom one.
-2. Optionally paste the **CA certificate** (PEM) that signed the broker's
-   certificate: your own CA for a self-signed setup, or the public root (such
-   as ISRG Root X1 for Let's Encrypt). The **Broker Host** must then be a
-   name listed in the broker's certificate, such as `homeassistant.local`.
-   Don't use an IP address here: the controller can't match a certificate to
-   an IP address, even one the certificate lists, so the certificate check
-   fails.
-3. Save. The device reboots and connects over TLS.
-
-Without a CA certificate the connection is still encrypted, but the controller
-doesn't check that it is talking to your broker, so a device on your network
-pretending to be the broker could still collect the password. If the
-connection fails, the Web Serial log shows the TLS error (for example, an
-untrusted certificate or a host name mismatch).
-
-TLS costs memory: each TLS connection holds about 33 kB for as long as it is
-open, and with TLS on, the printer and the broker connections each have one.
-On the usual BLLED board (an ESP32 without PSRAM) that may not leave enough
-room. Signs of running short are `SSL - Memory allocation failed` in the log,
-dropped printer reports, printer timeouts (-4) and Web Serial failing to
-connect. If you see them, switch off **Use TLS**. The log shows free memory
-each time a connection is made, and the **Diagnostics** panel shows free
-memory and the largest free block.
+To limit what a captured password is worth, give BLLED its own broker account
+instead of one shared with other devices. If your broker supports access
+control lists (the Mosquitto add-on does, through its `customize` option),
+allow that account only `blled/#` and publishing discovery messages under
+`homeassistant/`.
 
 ## Example automation: fully disable LEDs when the printer is off
 

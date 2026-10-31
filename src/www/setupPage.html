@@ -141,22 +141,6 @@
                             <input type="text" id="haMqttUser" name="haMqttUser" autocomplete="off">
                             <label for="haMqttPass">Password</label>
                             <input type="password" id="haMqttPass" name="haMqttPass" autocomplete="new-password">
-                            <div class="toggle-switch">
-                                <label class="switch">
-                                    <input type="checkbox" id="haMqttTls" name="haMqttTls" onchange="toggleHaTls(true);">
-                                    <span class="slider"></span>
-                                </label>
-                                <span>Use TLS (encrypted connection, usually port 8883)</span>
-                            </div>
-                            <div id="haMqttTlsSection" style="display:none;">
-                                <label for="haMqttCaCert">Broker CA certificate (PEM, optional)</label>
-                                <textarea id="haMqttCaCert" name="haMqttCaCert" rows="6" spellcheck="false"
-                                    placeholder="-----BEGIN CERTIFICATE-----"></textarea>
-                                <small>With a CA certificate, the controller checks that it is talking to your broker;
-                                    the Broker Host must be a name in the broker's certificate (such as
-                                    homeassistant.local), not an IP address. Without one, the
-                                    connection is still encrypted, but the broker's identity isn't checked.</small>
-                            </div>
                             <small>Entities (light, mode, enable) are auto-created in Home Assistant via MQTT
                                 Discovery. Changing broker settings reboots the device.</small>
                         </div>
@@ -1006,9 +990,6 @@
                             document.getElementById('haMqttUser').value = configData.haMqttUser || '';
                             // The stored password is never sent to the browser; leave the field blank to keep it.
                             document.getElementById('haMqttPass').placeholder = configData.hasHaMqttPass ? '(saved - leave blank to keep)' : '';
-                            document.getElementById('haMqttTls').checked = !!configData.haMqttTls;
-                            document.getElementById('haMqttCaCert').value = configData.haMqttCaCert || '';
-                            toggleHaTls(false);
                             document.getElementById('offlineDimEnabled').checked = (configData.offlineDimEnabled !== undefined ? configData.offlineDimEnabled : true);
                             document.getElementById('offlineDimAfterSec').value = getSafeNumber(configData.offlineDimAfterSec, 60);
                             document.getElementById('offlineDimBrightness').value = getSafeNumber(configData.offlineDimBrightness, 5);
@@ -1077,19 +1058,6 @@
             if (!modeEl || !sec) return;
             sec.style.display = (modeEl.value === '0') ? 'none' : '';
             fitCollapse(sec);
-        }
-
-        // Show the CA field only with TLS on. When TLS is switched, move the port between the
-        // usual plain (1883) and TLS (8883) ports, unless a custom port is set.
-        function toggleHaTls(switched) {
-            var tls = document.getElementById('haMqttTls').checked;
-            var sec = document.getElementById('haMqttTlsSection');
-            sec.style.display = tls ? '' : 'none';
-            fitCollapse(sec);
-            if (!switched) return;
-            var port = document.getElementById('haMqttPort');
-            if (tls && (port.value === '' || port.value === '1883')) port.value = '8883';
-            if (!tls && port.value === '8883') port.value = '1883';
         }
 
         // Re-measure an open collapse after content inside it was shown or hidden.

@@ -151,8 +151,6 @@ extern "C"
         int  haMqttPort = 1883;          // Home Assistant MQTT broker port
         char haMqttUser[40] = "";        // Home Assistant MQTT username (optional)
         char haMqttPass[64] = "";        // Home Assistant MQTT password (optional)
-        bool haMqttTls = false;          // Connect to the broker over TLS (usually port 8883)
-        String haMqttCaCert;             // CA certificate (PEM) to verify the broker; empty = don't verify
 
         // Offline (printer unreachable) behaviour
         // Instead of getting "stuck" on the last colour, dim the strip after a timeout
