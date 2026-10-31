@@ -988,7 +988,8 @@
                             document.getElementById('haMqttHost').value = configData.haMqttHost || '';
                             document.getElementById('haMqttPort').value = getSafeNumber(configData.haMqttPort, 1883);
                             document.getElementById('haMqttUser').value = configData.haMqttUser || '';
-                            document.getElementById('haMqttPass').value = configData.haMqttPass || '';
+                            // The stored password is never sent to the browser; leave the field blank to keep it.
+                            document.getElementById('haMqttPass').placeholder = configData.hasHaMqttPass ? '(saved - leave blank to keep)' : '';
                             document.getElementById('offlineDimEnabled').checked = (configData.offlineDimEnabled !== undefined ? configData.offlineDimEnabled : true);
                             document.getElementById('offlineDimAfterSec').value = getSafeNumber(configData.offlineDimAfterSec, 60);
                             document.getElementById('offlineDimBrightness').value = getSafeNumber(configData.offlineDimBrightness, 5);
@@ -1017,7 +1018,7 @@
         }
         // Apply the master "Enable BLLED Light Control" immediately (no Save needed).
         function setMasterEnable(on) {
-            fetch('/setEnable?on=' + (on ? '1' : '0'))
+            fetch('/setEnable?on=' + (on ? '1' : '0'), { method: 'POST', headers: { 'X-BLLED': '1' } })
                 .then(function (r) {
                     if (r.ok) alertToast("Success", "BLLED light control " + (on ? "enabled" : "disabled"));
                     else alertToast("Error", "Failed to update (" + r.status + ")");
@@ -1219,7 +1220,7 @@
             });
             fetch('/submitNetworking', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-BLLED': '1'},
                 body: params.join('&')
             })
             .then(function(r) { return r.ok ? r.text() : Promise.reject(r.status); })

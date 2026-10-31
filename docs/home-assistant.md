@@ -71,6 +71,8 @@ Assistant — see the automation below.
 3. Tick **Enable Home Assistant integration**, enter your broker **host**,
    **port** (1883 by default), and **username/password** if your broker requires
    them. Save — the device reboots to connect.
+   Once saved, the broker password is never shown again: leave the field blank
+   to keep it, or clear the username to remove both.
 4. In Home Assistant, the device + 3 entities appear automatically under
    *Settings → Devices & Services → MQTT*.
 

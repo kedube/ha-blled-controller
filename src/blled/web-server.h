@@ -197,7 +197,7 @@ void handleGetConfig(AsyncWebServerRequest *request)
     doc["haMqttHost"] = printerConfig.haMqttHost;
     doc["haMqttPort"] = printerConfig.haMqttPort;
     doc["haMqttUser"] = printerConfig.haMqttUser;
-    doc["haMqttPass"] = printerConfig.haMqttPass;
+    doc["hasHaMqttPass"] = strlen(printerConfig.haMqttPass) > 0; // never send the secret itself
     doc["offlineDimEnabled"] = printerConfig.offlineDimEnabled;
     doc["offlineDimAfterSec"] = printerConfig.offlineDimAfterSec;
     doc["offlineDimBrightness"] = printerConfig.offlineDimBrightness;
@@ -258,6 +258,10 @@ void handleSubmitNetworking(AsyncWebServerRequest *request)
     if (!isAuthorized(request))
     {
         return request->requestAuthentication();
+    }
+    if (!fromOwnPage(request))
+    {
+        return refuseForeign(request);
     }
 
     auto getSafeParamInt = [](AsyncWebServerRequest *req, const char *name, int fallback = 0) -> int
@@ -423,7 +427,13 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
     strlcpy(printerConfig.haMqttHost, getSafeParamValue(request, "haMqttHost").c_str(), sizeof(printerConfig.haMqttHost));
     printerConfig.haMqttPort = getSafeParamInt(request, "haMqttPort", 1883);
     strlcpy(printerConfig.haMqttUser, getSafeParamValue(request, "haMqttUser").c_str(), sizeof(printerConfig.haMqttUser));
-    strlcpy(printerConfig.haMqttPass, getSafeParamValue(request, "haMqttPass").c_str(), sizeof(printerConfig.haMqttPass));
+    // The broker password is never sent to the page, so a blank field keeps the stored one.
+    // Clearing the username removes it.
+    String haPass = getSafeParamValue(request, "haMqttPass");
+    if (strlen(printerConfig.haMqttUser) == 0)
+        printerConfig.haMqttPass[0] = '\0';
+    else if (haPass.length() > 0)
+        strlcpy(printerConfig.haMqttPass, haPass.c_str(), sizeof(printerConfig.haMqttPass));
     printerConfig.offlineDimEnabled = request->hasParam("offlineDimEnabled", true);
     printerConfig.offlineDimAfterSec = getSafeParamInt(request, "offlineDimAfterSec", 60);
     printerConfig.offlineDimBrightness = getSafeParamInt(request, "offlineDimBrightness", 5);
@@ -467,11 +477,14 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
 }
 
 // Apply the master "Enable BLLED Light Control" immediately (no full Save needed),
-// persist it, and sync the new state to Home Assistant.
+// persist it, and sync the new state to Home Assistant. A POST from our own page, so a
+// link or image on another site can't switch the lights off.
 void handleSetEnable(AsyncWebServerRequest *request)
 {
     if (!isAuthorized(request))
         return request->requestAuthentication();
+    if (!fromOwnPage(request))
+        return refuseForeign(request);
 
     bool on = true;
     if (request->hasParam("on"))
@@ -896,7 +909,7 @@ void setupWebserver()
     webServer.on("/getConfig", HTTP_GET, handleGetConfig);
     webServer.on("/submitConfig", HTTP_POST, handleSubmitConfig);
     webServer.on("/submitNetworking", HTTP_POST, handleSubmitNetworking);
-    webServer.on("/setEnable", HTTP_GET, handleSetEnable);
+    webServer.on("/setEnable", HTTP_POST, handleSetEnable);
     webServer.on("/blled.svg", HTTP_GET, handleGetIcon);
     webServer.on("/favicon.ico", HTTP_GET, handleGetfavicon);
     webServer.on("/particleCanvas.js", HTTP_GET, handleGetPCC);

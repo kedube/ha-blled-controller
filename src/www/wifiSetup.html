@@ -538,6 +538,7 @@
             formData.append("config", file);
             const xhr = new XMLHttpRequest();
             xhr.open("POST", "/configrestore", true);
+            xhr.setRequestHeader("X-BLLED", "1");
             xhr.onload = function () {
                 if (xhr.status === 200) {
                     status.textContent = "Restored! Device is restarting...";
