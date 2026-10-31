@@ -544,7 +544,7 @@
                     status.textContent = "Restored! Device is restarting...";
                     alertToast("success", "Config restored. Device is restarting...");
                 } else {
-                    alertToast("error", "Upload failed: " + xhr.status);
+                    alertToast("error", "Upload failed: " + (xhr.responseText || xhr.status));
                 }
             };
             xhr.onerror = function () {

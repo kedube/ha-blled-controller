@@ -830,29 +830,6 @@ void handleFactoryReset(AsyncWebServerRequest *request)
     restartRequestTime = millis();
 }
 
-void handleUploadConfigFileData(AsyncWebServerRequest *request, const String &filename,
-                                size_t index, uint8_t *data, size_t len, bool final)
-{
-    static File uploadFile;
-
-    if (!index)
-    {
-        LogSerial.println(F("[ConfigUpload] Start"));
-        uploadFile = LittleFS.open(configPath, "w");
-    }
-    if (uploadFile)
-    {
-        uploadFile.write(data, len);
-    }
-    if (final)
-    {
-        uploadFile.close();
-        LogSerial.println(F("[ConfigUpload] Finished"));
-    }
-    shouldRestart = true;
-    restartRequestTime = millis();
-}
-
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
                void *arg, uint8_t *data, size_t len)
 {
@@ -881,19 +858,21 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
 
 void setupWebserver()
 {
+    // Without mDNS the web UI is still reachable by IP, so carry on: stopping here would leave
+    // the controller unreachable until it is reflashed over USB.
     if (!MDNS.begin(globalVariables.Host.c_str()))
     {
-        LogSerial.println(F("Error setting up MDNS responder!"));
-        while (1)
-            delay(500);
+        LogSerial.println(F("[MDNS] Error setting up MDNS responder - web UI only reachable by IP"));
     }
-
-    // Advertise the web UI over mDNS so it is reachable at http://<host>.local
-    // (default http://blled.local) and discoverable by network/HA scanners.
-    MDNS.addService("http", "tcp", 80);
-    LogSerial.print(F("[MDNS] Web UI available at http://"));
-    LogSerial.print(globalVariables.Host);
-    LogSerial.println(F(".local"));
+    else
+    {
+        // Advertise the web UI over mDNS so it is reachable at http://<host>.local
+        // (default http://blled.local) and discoverable by network/HA scanners.
+        MDNS.addService("http", "tcp", 80);
+        LogSerial.print(F("[MDNS] Web UI available at http://"));
+        LogSerial.print(globalVariables.Host);
+        LogSerial.println(F(".local"));
+    }
 
     LogSerial.println(F("Setting up webserver"));
 
@@ -937,31 +916,58 @@ void setupWebserver()
         if (!fromOwnPage(request)) {
             return refuseForeign(request);
         }
+        // The upload callback leaves its verdict in _tempObject: NULL = no file arrived,
+        // "" = accepted, otherwise why the file was refused.
+        const char *refused = (const char *)request->_tempObject;
+        if (refused == NULL || refused[0] != '\0') {
+            request->send(400, "text/plain", refused ? refused : "No config file received. Nothing was changed.");
+            return;
+        }
         request->send(200, "text/plain", "Config uploaded. Restarting...");
         shouldRestart = true;
         restartRequestTime = millis(); }, [](AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final)
                  {
-        static File uploadFile;
-        static bool uploadAuthorized = false;
+        // The upload goes to a temporary file and only replaces the config once it parses as
+        // one, so a wrong or cut-off file can't wipe the settings.
+        auto refuse = [request](const char *why) {
+            LogSerial.printf("[ConfigUpload] Refused: %s\n", why);
+            if (request->_tempFile) {
+                request->_tempFile.close();
+                LittleFS.remove(configUploadPath);
+            }
+            request->_tempObject = strdup(why);
+        };
 
         if (!index) {
-            uploadAuthorized = isAuthorized(request) && fromOwnPage(request);
-            if (!uploadAuthorized) {
-                LogSerial.println(F("[ConfigUpload] Rejected: not authorized, or not from the controller's pages"));
-                return;
+            if (!(isAuthorized(request) && fromOwnPage(request))) {
+                return refuse("Not authorized, or not from the controller's pages.");
             }
             LogSerial.printf("[ConfigUpload] Start: %s\n", filename.c_str());
-            uploadFile = LittleFS.open(configPath, "w");
+            request->_tempFile = LittleFS.open(configUploadPath, "w");
+            if (!request->_tempFile) {
+                return refuse("Could not write to the controller's storage. Nothing was changed.");
+            }
         }
-        if (!uploadAuthorized) {
-            return;
+        if (request->_tempObject != NULL) {
+            return; // already refused
         }
-        if (uploadFile) {
-            uploadFile.write(data, len);
+        if (index + len > configUploadMaxBytes) {
+            return refuse("File is too large to be a BLLED config. Nothing was changed.");
         }
+        request->_tempFile.write(data, len);
         if (final) {
-            uploadFile.close();
+            request->_tempFile.close();
+            if (!isValidConfigFile(configUploadPath)) {
+                LittleFS.remove(configUploadPath);
+                return refuse("Not a BLLED config file. Nothing was changed.");
+            }
+            // littlefs replaces the target in one step; remove it first only if that fails.
+            if (!LittleFS.rename(configUploadPath, configPath)) {
+                LittleFS.remove(configPath);
+                LittleFS.rename(configUploadPath, configPath);
+            }
             LogSerial.println(F("[ConfigUpload] Finished"));
+            request->_tempObject = strdup("");
         } });
 
     webServer.on("/update", HTTP_POST, [](AsyncWebServerRequest *request)

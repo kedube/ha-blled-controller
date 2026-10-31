@@ -59,7 +59,7 @@
           status.textContent = "Upload successful. Waiting for device...";
           tryReconnect();
         } else {
-          status.textContent = "Upload failed.";
+          status.textContent = "Upload failed: " + (xhr.responseText || xhr.status);
         }
       };
 

@@ -307,7 +307,7 @@ Allows you to download or upload the full BLLED configuration (`blledconfig.json
 Uploads a `blledconfig.json` backup file and replaces the current configuration.
 
 - ⚠️ Device will **restart automatically** after upload
-- File is validated for structure and required fields
+- The file must be a BLLED config (a JSON file with the WiFi settings, under 16 kB). Anything else is refused and the current settings are kept.
 - No merge – existing settings will be fully replaced
 
 ---

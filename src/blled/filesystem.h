@@ -9,6 +9,9 @@
 #include "types.h"
 
 const char *configPath = "/blledconfig.json";
+// A restore upload is written here first and only replaces the config once it checks out.
+const char *configUploadPath = "/blledconfig.upload";
+const size_t configUploadMaxBytes = 16384; // a saved config is a few kB
 
 char *generateRandomString(int length)
 {
@@ -347,6 +350,19 @@ void deleteFileSystem()
 bool hasFileSystem()
 {
     return LittleFS.exists(configPath);
+}
+
+// A restore file must look like a saved config (a JSON object with the WiFi SSID) before it
+// replaces the current one; otherwise the next boot would discard it and every setting.
+bool isValidConfigFile(const char *path)
+{
+    File file = LittleFS.open(path, "r");
+    if (!file)
+        return false;
+    JsonDocument json;
+    DeserializationError error = deserializeJson(json, file);
+    file.close();
+    return !error && json.is<JsonObject>() && json["ssid"].is<const char *>();
 }
 
 void setupFileSystem()
