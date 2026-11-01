@@ -18,7 +18,7 @@ The BL Led Controller is an ESP32 based device that connects to your Bambulab X1
 
 ### Changes in this fork
 
-Compared with plugowski's fork (2.4.2), version 2.4.3 makes these changes.
+Compared with plugowski's fork (2.4.2), this fork makes these changes. Each [release](https://github.com/kedube/ha-blled-controller/releases) lists the changes since the one before.
 
 **Security**
 
@@ -36,6 +36,7 @@ Compared with plugowski's fork (2.4.2), version 2.4.3 makes these changes.
 
 - **Larger firmware slots** – 1.875 MB per slot instead of 1.25 MB, so new features keep fitting (see the flash layout note below).
 - **Clear firmware update errors** – if you choose the wrong file or the firmware doesn't fit, the update page says so and the current firmware keeps running.
+- **Firmware file picker** – the update page lets you choose the `.bin.ota` file. Before, browsers that look only at the last extension (such as on macOS) greyed out every file.
 - **No hang when mDNS fails** – the controller logs the error and keeps running instead of stopping at boot.
 - **Memory in Diagnostics** – the Diagnostics panel shows free memory, the lowest it has been since boot and the largest free block.
 - **Printer reports and low memory** – a report that doesn't fit in memory is dropped with one log line, instead of a "Failed to grow buffer" line for every byte that didn't fit, and the log shows free memory each time a connection is made.
@@ -51,11 +52,11 @@ Compared with plugowski's fork (2.4.2), version 2.4.3 makes these changes.
 **Docs and builds**
 
 - The [manual](docs/manual.md) says that passwords are stored unencrypted on the device and that config backups contain them in plain text.
-- GitHub Actions builds the firmware on every push and pull request.
+- GitHub Actions builds the firmware on every push and pull request, and every push to main publishes a [release](https://github.com/kedube/ha-blled-controller/releases) with the next version number.
 
 ### Flashing and Setup
 
-> **For this fork:** download the firmware from the latest run of the [Build firmware workflow](https://github.com/kedube/ha-blled-controller/actions/workflows/build.yml) (you need to be signed in to GitHub; each download expires 90 days after its build), or build it yourself (see below). The download contains two files. If the controller already runs BLLED firmware, install the `.bin.ota` file from its **Firmware Update** page. For a new ESP32, flash the full `.bin` over USB, for example with `esptool.py write_flash 0x0 BLLC_V<version>.bin`.
+> **For this fork:** download the firmware from the [latest release](https://github.com/kedube/ha-blled-controller/releases/latest), or build it yourself (see below). The release has two files. If the controller already runs BLLED firmware, install the `.bin.ota` file from its **Firmware Update** page. For a new ESP32, flash the full `.bin` over USB, for example with `esptool.py write_flash 0x0 BLLC_V<version>.bin`.
 >
 > plugowski's builds at [tech.lugowski.dev/firmware](https://tech.lugowski.dev/firmware/) don't include this fork's changes. The original DutchDeveloper flasher below installs the upstream firmware *without* the Home Assistant features.
 

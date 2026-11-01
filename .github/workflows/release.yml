@@ -1,0 +1,137 @@
+name: Release
+
+# Every push to main publishes a release. If custom_version in platformio.ini has no
+# release yet, that version is released as it is; otherwise the patch number is bumped
+# and the bump is committed back to main (pull before your next push). To release a new
+# major or minor version, set it in platformio.ini yourself.
+#
+# Pushes that only change documentation or workflows don't release.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".github/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write # push the version bump, create the tag and release
+
+# One release at a time, so two quick pushes can't claim the same version.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      # The latest main rather than the pushed commit: a release that waited for an
+      # earlier one must include that one's version bump.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0 # tags and history, for the version and release notes
+
+      - name: Work out the version
+        id: version
+        run: |
+          current=$(sed -nE 's/^custom_version *= *([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' platformio.ini)
+          if [ -z "$current" ]; then
+            echo "::error::No custom_version in platformio.ini"
+            exit 1
+          fi
+
+          if git rev-parse -q --verify "refs/tags/v$current" >/dev/null &&
+             [ "$(git rev-list -n 1 "v$current")" = "$(git rev-parse HEAD)" ]; then
+            echo "v$current was released from this commit already; nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          version=$current
+          while git rev-parse -q --verify "refs/tags/v$version" >/dev/null; do
+            IFS=. read -r major minor patch <<< "$version"
+            version="$major.$minor.$((patch + 1))"
+          done
+          if [ "$version" != "$current" ]; then
+            sed -i -E "s/^(custom_version *= *)$current/\1$version/" platformio.ini
+            echo "Bumped $current to $version"
+          fi
+
+          {
+            echo "previous=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)"
+            echo "version=$version"
+            echo "bumped=$([ "$version" != "$current" ] && echo true || echo false)"
+            echo "release=true"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v7
+        if: steps.version.outputs.release == 'true'
+        with:
+          python-version: "3.11"
+
+      - uses: actions/cache@v6
+        if: steps.version.outputs.release == 'true'
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+
+      - name: Install PlatformIO
+        if: steps.version.outputs.release == 'true'
+        run: pip install --upgrade platformio
+
+      # Built before anything is committed or tagged, so a failed build changes nothing.
+      - name: Build
+        if: steps.version.outputs.release == 'true'
+        run: pio run -e esp32dev
+
+      # GITHUB_TOKEN pushes don't start workflows, so this doesn't release again;
+      # [skip ci] keeps it that way if the token is ever replaced.
+      - name: Commit the version bump
+        if: steps.version.outputs.bumped == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add platformio.ini
+          git commit -m "Bump version to $VERSION [skip ci]"
+          git push origin HEAD:main
+
+      - name: Publish the release
+        if: steps.version.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PREVIOUS: ${{ steps.version.outputs.previous }}
+        run: |
+          {
+            if [ -n "$PREVIOUS" ]; then
+              echo "## Changes since $PREVIOUS"
+              echo
+              git log --no-merges --format='- %s' "$PREVIOUS..HEAD" | grep -v ' \[skip ci\]$' || true # not the bump commits
+              echo
+              echo "**Full changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$PREVIOUS...v$VERSION"
+            else
+              echo "First release of this fork. See [Changes in this fork](https://github.com/$GITHUB_REPOSITORY#changes-in-this-fork)."
+            fi
+            echo
+            echo "## Files"
+            echo
+            echo "- \`BLLC_V$VERSION.bin.ota\`: update a controller that already runs BLLED firmware, from its **Firmware Update** page."
+            echo "- \`BLLC_V$VERSION.bin\`: full image for a new ESP32, flashed over USB at offset 0x0 (for example \`esptool.py write_flash 0x0 BLLC_V$VERSION.bin\`). This erases the settings."
+          } > notes.md
+
+          gh release create "v$VERSION" \
+            --target "$(git rev-parse HEAD)" \
+            --title "v$VERSION" \
+            --notes-file notes.md \
+            ".firmware/BLLC_V$VERSION.bin" \
+            ".firmware/BLLC_V$VERSION.bin.ota"

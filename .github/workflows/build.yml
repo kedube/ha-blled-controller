@@ -1,7 +1,7 @@
 name: Build firmware
 
-# Catch build breaks before they reach main. The release workflows only run when a
-# release is published.
+# Catch build breaks before they reach main. Pushes to main are also released by
+# release.yml.
 on:
   push:
     branches: [main]
