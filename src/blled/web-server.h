@@ -456,13 +456,7 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
 
     saveFileSystem();
     LogSerial.println(F("Packet received from setuppage"));
-    printerConfig.inactivityStartms = millis();
-    printerConfig.isIdleOFFActive = false;
-    printerConfig.replicate_update = true;
-    printerConfig.maintMode_update = true;
-    printerConfig.discoMode_update = true;
-    printerConfig.testcolor_update = true;
-    updateleds();
+    refreshLeds();
 
     if (haConnChanged)
     {
@@ -496,7 +490,7 @@ void handleSetEnable(AsyncWebServerRequest *request)
     haVariables.masterEnable = on;
     haVariables.stateDirty = true; // push new state to Home Assistant
     saveFileSystem();              // persist
-    updateleds();
+    redrawLeds();                  // after being off, the strip needs the colour the printer logic is holding
 
     LogSerial.print(F("[Web] BLLED light control "));
     LogSerial.println(on ? F("enabled") : F("disabled"));

@@ -2,7 +2,7 @@
 
 The BL Led Controller is an ESP32 based device that connects to your Bambulab X1,X1C,P1P Or P1S and controls the LED strip based on the state of the printer.
 
-> **This fork** ([kedube/ha-blled-controller](https://github.com/kedube/ha-blled-controller)) is based on [plugowski/HomeAssistant_BLLEDController](https://github.com/plugowski/HomeAssistant_BLLEDController), Pawel Lugowski's fork of DutchDeveloper's original firmware. The **Home Assistant** integration and independent control of the LED strip are plugowski's work. This fork adds security fixes, an encrypted connection to the Home Assistant broker and reliability fixes on top; see [Changes in this fork](#changes-in-this-fork). See the [Home Assistant guide](docs/home-assistant.md) for full details.
+> **This fork** ([kedube/ha-blled-controller](https://github.com/kedube/ha-blled-controller)) is based on [plugowski/HomeAssistant_BLLEDController](https://github.com/plugowski/HomeAssistant_BLLEDController), Pawel Lugowski's fork of DutchDeveloper's original firmware. The **Home Assistant** integration and independent control of the LED strip are plugowski's work. This fork adds security fixes, reliability fixes and more Home Assistant entities on top; see [Changes in this fork](#changes-in-this-fork). See the [Home Assistant guide](docs/home-assistant.md) for full details.
 
 ### Home Assistant features (from plugowski's fork)
 
@@ -40,6 +40,13 @@ Compared with plugowski's fork (2.4.2), version 2.4.3 makes these changes.
 - **Memory in Diagnostics** – the Diagnostics panel shows free memory, the lowest it has been since boot and the largest free block.
 - **Printer reports and low memory** – a report that doesn't fit in memory is dropped with one log line, instead of a "Failed to grow buffer" line for every byte that didn't fit, and the log shows free memory each time a connection is made.
 - **Repeatable builds** – the web server and Web Serial libraries are pinned to exact versions.
+
+**Home Assistant**
+
+- **More Home Assistant entities** – printer brightness, maintenance mode, buttons to resume printer control and wake the LEDs, the LED behaviour settings from the setup page, printer connection and error status, and diagnostics (WiFi signal, memory, and what is driving the strip). See [What appears in Home Assistant](docs/home-assistant.md#what-appears-in-home-assistant).
+- **Icons** – the light shows an LED strip instead of a light bulb, and the enable switch shows a power icon instead of sharing the light's.
+- **No dark strip after Enable or Home Assistant** – turning the enable switch back on, or handing the strip back from Home Assistant, shows the colour the printer is holding (maintenance mode, colour test, a finished print waiting for the door) instead of leaving the strip dark.
+- **RGB cycle** – follows the brightness setting, no longer sends each colour channel an out-of-range value for half of the cycle, and stops while the strip is disabled or Home Assistant has it.
 
 **Docs and builds**
 

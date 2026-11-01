@@ -26,6 +26,32 @@ int currentBlue = 0;
 int currentWarm = 0;
 int currentCold = 0;
 
+// The colour tweenToColor() last drew, before brightness, so a brightness change can redraw
+// it. False once something else (Home Assistant, offline dim, RGB cycle) has set the strip directly.
+int brightTargetRed = 0;
+int brightTargetGreen = 0;
+int brightTargetBlue = 0;
+int brightTargetWarm = 0;
+int brightTargetCold = 0;
+bool brightTargetShown = false;
+
+// What is driving the strip right now, in the same words as the log. Shown in Home Assistant.
+const char *ledSource = "Starting";
+const char *brightTargetSource = "Starting"; // ledSource for the brightTarget colour
+
+// Counts tweenToColor() and setLedsRaw() calls, so redrawLeds() can tell whether
+// updateleds() drew anything.
+unsigned long ledDrawCount = 0;
+
+// Names what is driving the strip. A name given for a colour tweenToColor() drew stays
+// with that colour, for redrawLeds() to put back.
+void setLedSource(const char *source)
+{
+    ledSource = source;
+    if (brightTargetShown)
+        brightTargetSource = source;
+}
+
 unsigned long lastUpdatems = 0;
 unsigned long oldms = 0;
 
@@ -105,6 +131,13 @@ void markHaReported()
 
 void tweenToColor(int targetRed, int targetGreen, int targetBlue, int targetWarm, int targetCold, int duration = 500)
 {
+    ledDrawCount++;
+    brightTargetRed = targetRed;
+    brightTargetGreen = targetGreen;
+    brightTargetBlue = targetBlue;
+    brightTargetWarm = targetWarm;
+    brightTargetCold = targetCold;
+    brightTargetShown = true;
 
     float brightness = (float)printerConfig.brightness / 100.0;
 
@@ -218,6 +251,8 @@ void tweenToColor(int hexValue, short ww_value = 0, short cw_value = 0)
 // ---------------------------------------------------------------------------
 void setLedsRaw(int targetRed, int targetGreen, int targetBlue, int targetWarm, int targetCold, int duration = 300)
 {
+    ledDrawCount++;
+    brightTargetShown = false;
     targetRed = constrain(targetRed, 0, 255);
     targetGreen = constrain(targetGreen, 0, 255);
     targetBlue = constrain(targetBlue, 0, 255);
@@ -265,19 +300,33 @@ void setLedsRaw(int targetRed, int targetGreen, int targetBlue, int targetWarm, 
     markHaReported();
 }
 
-// Returns true when a printer error is active that should override any HA colour
-// in Hybrid mode (so the error colour is always visible).
-static bool isPrinterErrorActive()
+// Severity of the HMS code the printer last reported: 1 = Fatal, 2 = Serious, 3 = Common,
+// 4 = Info, 0 = none. Worked out from the code rather than parsedHMSlevel, because the
+// printer task replaces that String while the Home Assistant task reads this.
+static int hmsSeverity()
 {
-    if (!printerConfig.errordetection)
-        return false;
+    if (!printerVariables.hmsstate)
+        return 0;
+    return (int)((printerVariables.parsedHMScode & 0xFFFFFFFF) >> 16);
+}
+
+// Returns true when the printer reports an error BLLED shows in an error colour,
+// whether or not error detection is switched on.
+static bool isPrinterErrorPresent()
+{
     if (printerVariables.stage == 6  || printerVariables.overridestage == 6)  return true; // filament runout
     if (printerVariables.stage == 17 || printerVariables.overridestage == 17) return true; // front cover
     if (printerVariables.stage == 20 || printerVariables.overridestage == 20) return true; // nozzle temp
     if (printerVariables.stage == 21 || printerVariables.overridestage == 21) return true; // bed temp
-    if (printerVariables.parsedHMSlevel == "Serious") return true;
-    if (printerVariables.parsedHMSlevel == "Fatal")   return true;
-    return false;
+    int severity = hmsSeverity();
+    return severity == 1 || severity == 2; // Fatal or Serious
+}
+
+// Returns true when a printer error is active that should override any HA colour
+// in Hybrid mode (so the error colour is always visible).
+static bool isPrinterErrorActive()
+{
+    return printerConfig.errordetection && isPrinterErrorPresent();
 }
 
 // Apply the Home Assistant light state to the strip. HA owns brightness here,
@@ -351,6 +400,14 @@ void RGBCycle()
         };
     }
 
+    // Leave the strip alone while it is disabled or Home Assistant has it (same rules as updateleds()).
+    if (!haVariables.masterEnable || printerConfig.ledControlMode == LED_MODE_HA ||
+        (printerConfig.ledControlMode == LED_MODE_HYBRID && haVariables.overrideActive && !isPrinterErrorActive()))
+    {
+        return;
+    }
+    brightTargetShown = false; // the cycle, not tweenToColor()'s last colour, is on the strip
+
     if (printerVariables.online == false)
     {
         ledcWrite(redChannel, 0);
@@ -366,13 +423,13 @@ void RGBCycle()
         hue = 0.0;
     }
 
-    currentRed = cos(hue * 3.14 / 180.0) * 255;
-    currentGreen = cos((hue + 120.0) * 3.14 / 180.0) * 255;
-    currentBlue = cos((hue + 240.0) * 3.14 / 180.0) * 255;
+    // A channel is off while its cosine is negative; a negative duty would wrap to a huge one.
+    float brightness = (float)printerConfig.brightness / 100.0;
+    currentRed = (int)(fmax(0.0, cos(hue * 3.14 / 180.0)) * 255 * brightness);
+    currentGreen = (int)(fmax(0.0, cos((hue + 120.0) * 3.14 / 180.0)) * 255 * brightness);
+    currentBlue = (int)(fmax(0.0, cos((hue + 240.0) * 3.14 / 180.0)) * 255 * brightness);
     currentWarm = 0;
     currentCold = 0;
-
-    // Need to add code so it adjusts to set brightness level
 
     ledcWrite(redChannel, currentRed);
     ledcWrite(greenChannel, currentGreen);
@@ -406,14 +463,16 @@ void RGBCycle()
         LogSerial.println(printerConfig.brightness);
     };
 } */
-void printLogs(String Desc, COLOR thisColor)
+void printLogs(const char *Desc, COLOR thisColor)
 {
     static COLOR lastColor = {-1, -1, -1, -1, -1};
-    static String lastDesc = "";
+    static const char *lastDesc = "";
     static unsigned long lastPrintTime = 0;
 
+    setLedSource(Desc);
+
     // Skip if same state and printed less than 3 seconds ago
-    if (Desc == lastDesc &&
+    if (strcmp(Desc, lastDesc) == 0 &&
         memcmp(&thisColor, &lastColor, sizeof(COLOR)) == 0 &&
         millis() - lastPrintTime < 3000)
     {
@@ -422,7 +481,7 @@ void printLogs(String Desc, COLOR thisColor)
 
     if (printerConfig.debuging || printerConfig.debugingchange)
     {
-        LogSerial.printf("%s - Turning LEDs to:", Desc.c_str());
+        LogSerial.printf("%s - Turning LEDs to:", Desc);
         if ((thisColor.r + thisColor.g + thisColor.b + thisColor.ww + thisColor.cw) == 0)
         {
             LogSerial.println(" OFF");
@@ -440,7 +499,7 @@ void printLogs(String Desc, COLOR thisColor)
     lastPrintTime = millis();
 }
 
-void printLogs(String Desc, short r, short g, short b, short ww, short cw)
+void printLogs(const char *Desc, short r, short g, short b, short ww, short cw)
 {
     COLOR tempColor;
     tempColor.r = r;
@@ -472,6 +531,7 @@ void updateleds()
     if (haVariables.masterEnable == false)
     {
         setLedsRaw(0, 0, 0, 0, 0);
+        setLedSource("BLLED control disabled - OFF");
         if (!masterOffLogged)
         {
             printLogs("BLLED control disabled - OFF", 0, 0, 0, 0, 0);
@@ -484,6 +544,7 @@ void updateleds()
     if (printerConfig.ledControlMode == LED_MODE_HA)
     {
         applyHaLight();
+        setLedSource("Home Assistant");
         return;
     }
     // Hybrid mode: if HA has issued a command it overrides the printer until the
@@ -494,6 +555,7 @@ void updateleds()
         && !isPrinterErrorActive())
     {
         applyHaLight();
+        setLedSource("Home Assistant override");
         return;
     }
     // Otherwise (Printer-only mode, or Hybrid with no active override) fall through
@@ -539,6 +601,7 @@ void updateleds()
             else
                 tweenToColor(0, 0, 255, 0, 0); // BLUE
         };
+        setLedSource("WiFi Strength");
         return;
     }
 
@@ -593,6 +656,15 @@ void updateleds()
     if (printerConfig.testcolorEnabled || printerConfig.maintMode || printerConfig.debugwifi || printerConfig.discoMode)
     {
         // Skip trying to set a color as it's in one of the override states
+        if (printerConfig.discoMode)
+        {
+            brightTargetShown = false; // RGBCycle() draws over the others from now on
+            setLedSource("RGB Cycle Mode");
+        }
+        else if (printerConfig.maintMode)
+            setLedSource("Maintenance Mode");
+        else if (printerConfig.testcolorEnabled)
+            setLedSource("LED Test ON");
         return;
     }
 
@@ -678,6 +750,7 @@ void updateleds()
             }
         }
 
+        setLedSource(ledsAreOff ? "Door double-close - ON" : "Door double-close - OFF");
         printerVariables.doorSwitchTriggered = false;
         return;
     }
@@ -780,11 +853,13 @@ void updateleds()
         if (printerConfig.offlineDimEnabled)
         {
             applyOfflineDim();
+            setLedSource("Printer offline - dimmed");
             if (!offlineDimLogged) { printLogs("Printer offline - dimmed", printerConfig.offlineDimBrightness, 0, 0, 0, 0); offlineDimLogged = true; }
         }
         else
         {
             tweenToColor(0, 0, 0, 0, 0); // OFF (legacy behaviour)
+            setLedSource("Printer offline");
             if (!offlineDimLogged) { printLogs("Printer offline", 0, 0, 0, 0, 0); offlineDimLogged = true; }
         }
         return;
@@ -853,6 +928,7 @@ void updateleds()
         tweenToColor(0, 0, 0, 0, 0); // OFF
         controlChamberLight(false);  // Turn off chamber light via MQTT
         printerConfig.isIdleOFFActive = true;
+        setLedSource("Idle Timeout - OFF");
         if (printerConfig.debuging || printerConfig.debugingchange)
         {
             LogSerial.print(F("Idle Timeout ["));
@@ -944,6 +1020,56 @@ void updateleds()
     {
         updateleds();
     }
+}
+
+// Run the LED logic after something else had the strip (the master enable was off, or Home
+// Assistant had it). Where the logic keeps the colour it last chose instead of drawing one
+// (maintenance mode, the colour test, a finished print waiting for the door), draw that
+// colour again, because the strip has been showing something else since.
+void redrawLeds()
+{
+    unsigned long draws = ledDrawCount;
+    updateleds();
+    if (ledDrawCount == draws && !printerConfig.discoMode) // RGB cycle draws itself
+    {
+        tweenToColor(brightTargetRed, brightTargetGreen, brightTargetBlue, brightTargetWarm, brightTargetCold);
+        setLedSource(brightTargetSource);
+    }
+}
+
+// Redraw the strip after an LED setting changed (web page or Home Assistant): restart the
+// idle timer and let the one-shot behaviours (replicate, maintenance, RGB cycle, test colour)
+// draw again with the new settings.
+void refreshLeds()
+{
+    printerConfig.inactivityStartms = millis();
+    printerConfig.isIdleOFFActive = false;
+    printerConfig.replicate_update = true;
+    printerConfig.maintMode_update = true;
+    printerConfig.discoMode_update = true;
+    printerConfig.testcolor_update = true;
+    redrawLeds();
+}
+
+// Redraw the colour the printer logic last chose at the current brightness, without
+// re-running that logic, so a brightness change doesn't wake LEDs the idle timer turned off.
+void reapplyBrightness()
+{
+    if (!brightTargetShown || printerConfig.discoMode)
+        return; // Home Assistant, offline dim or RGB cycle is drawing the strip
+    tweenToColor(brightTargetRed, brightTargetGreen, brightTargetBlue, brightTargetWarm, brightTargetCold);
+}
+
+// What a door interaction does, for printers without a door sensor: end the finish
+// indication and restart the idle timer, so the strip goes back to its normal colour.
+void wakeLeds()
+{
+    printerVariables.waitingForDoor = false;
+    printerConfig.finish_check = false;
+    printerConfig.finishStartms = millis() - (unsigned long)printerConfig.finishTimeOut - 1; // finish timer already over
+    printerConfig.inactivityStartms = millis();
+    printerConfig.isIdleOFFActive = false;
+    updateleds();
 }
 
 void setupLeds()

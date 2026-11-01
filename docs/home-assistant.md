@@ -14,16 +14,58 @@ connection changes.
 
 ## What appears in Home Assistant
 
-Once enabled, three entities are auto‑created under a single device
-(`BLLED <name>`):
+Once enabled, these entities are auto‑created under a single device
+(`BLLED <name>`). Home Assistant lists the configuration and diagnostic ones in
+their own sections on the device page and leaves them off auto‑generated
+dashboards.
+
+**Controls and status**
 
 | Entity | Type | Purpose |
 | --- | --- | --- |
-| `light.blled_led` (≈) | Light (RGB + brightness) | Turn the strip on/off, set colour & brightness |
-| `select.blled_mode` | Select | Switch operating mode: `Printer` / `HomeAssistant` / `Hybrid` |
-| `switch.blled_enable` | Switch | Master enable. When **off** the strip is forced fully off |
+| LED (`light.blled_led` ≈) | Light (RGB + colour temperature + brightness) | Turn the strip on/off, set colour & brightness. In Hybrid mode this starts an override |
+| Mode | Select | Switch operating mode: `Printer` / `HomeAssistant` / `Hybrid` |
+| Enable | Switch | Master enable. When **off** the strip is forced fully off |
+| Printer brightness | Number (1–100 %) | The setup page's **Brightness**: how bright the printer‑driven colours are. A change redraws the current colour and doesn't wake LEDs the inactivity timeout turned off |
+| Maintenance mode | Switch | White light whatever the printer is doing, even when it's off. Turning it on also turns off RGB cycle, colour test and WiFi‑strength display, and ends a Hybrid override |
+| Resume printer control | Button | Ends a Hybrid override now, instead of waiting for a print to start |
+| Wake LEDs | Button | Does what opening the door does: ends the finish indication and restarts the inactivity timer. For printers without a door sensor |
+| Home Assistant override | Binary sensor | On while a Hybrid override is in effect (a printer error still shows over it) |
+| Printer connection | Binary sensor (connectivity) | Whether BLLED is connected to the printer |
+| Printer error | Binary sensor (problem) | On while the printer reports an error BLLED shows in an error colour: filament runout, front cover removed, nozzle or bed temperature failure, or a Serious or Fatal HMS code. This works even with error detection off. The `hms_code` and `hms_severity` attributes give the HMS code the printer is reporting, in the form the HMS ignore list uses, or none |
 
-(Exact entity IDs include the device MAC, e.g. `light.blled_a1b2c3d4e5f6_led`.)
+Printer brightness and maintenance mode only change the strip in *Printer* and
+*Hybrid* modes. In *Home Assistant* mode the light entity's own brightness
+applies.
+
+**Configuration** (the setup page's LED settings)
+
+| Entity | Type | Setup page setting |
+| --- | --- | --- |
+| Replicate chamber light | Switch | Replicate State |
+| Control chamber light | Switch | Control Chamber Light |
+| Error detection | Switch | Error Detection |
+| Finish indication | Switch | Finish Indication |
+| Finish indication exit | Select: `Door` / `Timer` | Exit Finish after Door Action / Exit Finish after … |
+| Finish indication timer | Number (minutes) | Exit Finish after … Min. |
+| Inactivity timeout | Switch | Inactivity Timeout |
+| Inactivity timeout length | Number (minutes) | Inactivity Timeout (Minutes) |
+| Offline dim | Switch | Dim (instead of staying lit) when printer is unreachable |
+| Offline dim delay | Number (seconds) | Dim after (sec) |
+| Offline dim brightness | Number (%) | Dim brightness (%) |
+
+This section also has a **Restart** button that restarts the controller.
+
+**Diagnostic**
+
+| Entity | Type | Purpose |
+| --- | --- | --- |
+| LED source | Sensor | What is driving the strip, in the same words as the log, e.g. `Stage 0, PRINTING - gcodeState RUNNING`, `Idle Timeout - OFF` or `Home Assistant override` |
+| WiFi signal | Sensor (dBm) | Signal strength, updated every minute |
+| Free memory, Largest free memory block | Sensors (bytes) | The memory figures from the Diagnostics panel, updated every minute |
+
+(Exact entity IDs follow the device and entity names, e.g. `light.blled_led`
+and `number.blled_printer_brightness`.)
 
 ## Operating modes
 
@@ -41,7 +83,8 @@ or from the HA `select` entity.
   override is *sticky*: it stays in effect while the printer is idle/finished/off,
   and is automatically released (printer reclaims the strip) when any of these
   happen: a **new print starts**, the **printer's chamber light is toggled**
-  (the physical button or the Bambu app), or you switch the mode to *Printer only*.
+  (the physical button or the Bambu app), you press **Resume printer control**,
+  you turn on **Maintenance mode**, or you switch the mode to *Printer only*.
 
 The **master enable** switch sits above all modes: turning it off forces the
 strip off in every mode, turning it on returns control to the selected mode.
@@ -73,7 +116,7 @@ Assistant — see the automation below.
    them. Save — the device reboots to connect.
    Once saved, the broker password is never shown again: leave the field blank
    to keep it, or clear the username to remove both.
-4. In Home Assistant, the device + 3 entities appear automatically under
+4. In Home Assistant, the device and its entities appear automatically under
    *Settings → Devices & Services → MQTT*.
 
 ### Protecting the broker password
@@ -153,6 +196,15 @@ Base topic: `blled/blled_<mac>`
 | Light state | `blled/blled_<mac>/light/state` | same JSON schema |
 | Mode command/state | `blled/blled_<mac>/mode/{set,state}` | `Printer` / `HomeAssistant` / `Hybrid` |
 | Enable command/state | `blled/blled_<mac>/enable/{set,state}` | `ON` / `OFF` |
+| Other commands | `blled/blled_<mac>/<key>/set` | Switches `ON` / `OFF`, numbers a value, `finish_exit` `Door` / `Timer`, buttons any payload |
+| Settings and status | `blled/blled_<mac>/settings/state` | JSON with one field per key, plus `override`, `printer`, `printer_error`, `hms_code`, `hms_severity`, `led_source`. Sent when something changes |
+| Diagnostics | `blled/blled_<mac>/diagnostics/state` | JSON: `rssi`, `free_memory`, `largest_block`. Sent every minute |
 
-Discovery configs are published retained under `homeassistant/light/…`,
-`homeassistant/select/…`, and `homeassistant/switch/…`.
+The keys are `brightness`, `maintenance`, `replicate`, `chamber_light`,
+`error_detection`, `finish`, `finish_exit`, `finish_minutes`, `inactivity`,
+`inactivity_minutes`, `offline_dim`, `offline_dim_delay`,
+`offline_dim_brightness`, and the buttons `resume`, `wake` and `restart`.
+
+Discovery configs are published retained under `homeassistant/<component>/…`
+for the `light`, `select`, `switch`, `number`, `button`, `binary_sensor` and
+`sensor` components.
